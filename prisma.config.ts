@@ -8,6 +8,7 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Prisma CLI uses the non-transaction-pooled connection for schema operations.
+    url: env("DIRECT_URL"),
   },
 });
