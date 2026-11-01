@@ -10,11 +10,17 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
     "test": "vitest run"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
+    "bcryptjs": "^3.0.2",
     "next": "^15.5.0",
+    "next-auth": "5.0.0-beta.32",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.1.0"
@@ -23,9 +29,11 @@
     "@types/node": "^22.18.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "dotenv": "^16.6.1",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.5.0",
     "prisma": "^6.16.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

@@ -1,45 +1,64 @@
-# Gestão Novo Caravela
+# Novo Caravela — Gestão Financeira
 
-Sistema web para a gestão financeira do salão de eventos: eventos, Bilheteria, Mesas, Bar, fundo de troco, cofre central, movimentações e contas a pagar.
+Sistema web para gestão do fluxo de caixa do salão de eventos Novo Caravela.
 
 ## Stack
 
 - Next.js App Router, React e TypeScript
-- PostgreSQL com Prisma
-- Deploy planejado na Vercel
+- PostgreSQL e Prisma ORM 6
+- Auth.js Credentials para acesso de administradores e gerentes
+- Deploy previsto na Vercel
 
-## Estado do projeto
+## Preparar ambiente
 
-A especificação funcional completa está em docs/ESPECIFICACAO_GESTAO_NOVO_CARAVELA.md.
+1. Copie `.env.example` para `.env` e configure `DATABASE_URL` para um PostgreSQL acessível.
+2. Gere um `AUTH_SECRET` aleatório, ajuste `BUSINESS_TIME_ZONE` para o fuso do salão e defina as credenciais iniciais de administrador. A senha inicial precisa ter ao menos 14 caracteres.
+3. Instale as dependências e aplique o schema:
 
-Esta é a fundação inicial: inclui o modelo de dados, serviços financeiros básicos, consultas de leitura e telas iniciais para painel, eventos, caixas, movimentações, despesas e cofre. O fluxo operacional ainda está em desenvolvimento.
+```bash
+npm install
+npm run db:generate
+npm run db:deploy
+npm run db:seed
+npm run dev
+```
 
-**Não use para registrar valores reais.** Ainda faltam autenticação e autorização no servidor, operações completas de escrita, migrations revisadas em banco real, abertura de caixa e distribuição de troco, fechamento integrado à sessão, depósitos, fluxos completos de despesas, backups e homologação.
+Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofre, banco, recebíveis, trânsito e contrapartida externa), três caixas de exemplo e o administrador inicial quando as variáveis `INITIAL_ADMIN_*` estão preenchidas. A senha é armazenada com hash; o seed não troca a senha de um usuário que já existe.
 
-## Executar localmente
+## Módulos disponíveis
 
-1. Instale as dependências:
+- Eventos com estados planejado, aberto e encerrado.
+- Caixas por setor (Bilheteria, Mesas e Bar), sessões por evento e colaborador, fundo de troco, sangria para o cofre e fechamento com contagem física.
+- Entradas em dinheiro, Pix, débito, crédito e transferência bancária.
+- Despesas vinculadas a evento ou gerais, vencimentos e pagamentos parciais.
+- Transferências entre contas, fundo central, cofre, valores em trânsito, recebíveis e banco.
+- Preparação, confirmação bancária ou cancelamento auditado de depósitos.
+- Resumos por período, método, categoria, conta e divergência de fechamento.
+- Cadastro de colaboradores sem credencial e usuários ADMIN/MANAGER com controle de acesso.
+- Estornos por novo lançamento, trilha de auditoria e chaves de idempotência.
 
-       npm install
+## Regras financeiras
 
-2. Copie .env.example para .env e configure DATABASE_URL com um PostgreSQL de desenvolvimento.
+- Dinheiro fica em contas físicas de sessão; Pix e transferência entram na conta bancária; cartão de débito/crédito entra em recebíveis.
+- Transferências internas não entram como receita nem despesa.
+- Despesa cadastrada não reduz caixa até haver pagamento.
+- Divergência de fechamento exige justificativa e gera ajuste auditado para alinhar o saldo físico contado.
+- Após fechar uma sessão, seu saldo só pode ser recolhido ao cofre. O evento só pode ser encerrado depois de fechar as sessões e recolher os saldos.
+- Lançamentos não devem ser editados ou apagados; correções são feitas com estorno identificado.
+- Valores são armazenados como `NUMERIC(18,2)`; operações de saldo usam transação e bloqueio de linha.
 
-3. Crie a migration inicial:
+## Integração de adquirente
 
-       npx prisma migrate dev --name init
+A integração Stone permanece como etapa futura, condicionada à disponibilidade de credenciais e documentação/API para liquidação e conciliação. O sistema registra vendas manualmente por meio de pagamento e mantém cartão em recebíveis até transferência/baixa.
 
-4. Inicie a aplicação:
+## Rotas principais
 
-       npm run dev
+- Telas: `/`, `/eventos`, `/caixas`, `/movimentacoes`, `/despesas`, `/cofre`, `/relatorios`, `/equipe`, `/usuarios` (administrador).
+- APIs de escrita financeira e cadastro são protegidas por sessão autenticada; a exceção pública é a checagem de saúde da aplicação.
+- As rotas de API validam payloads, registram o ator e usam idempotência em operações financeiras.
 
-Acesse http://localhost:3000.
+## Implantação
 
-## Regras financeiras adotadas
+Use PostgreSQL gerenciado com backups e conexão adequada a serverless. Configure `DATABASE_URL`, `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis da Vercel; aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
 
-- Dinheiro, Pix, débito e crédito ficam identificados separadamente.
-- Entradas eletrônicas não aumentam o saldo físico da gaveta.
-- Transferências entre fundo, caixas, cofre e trânsito não são faturamento.
-- Lançamentos financeiros devem ser rastreáveis e idempotentes.
-- Correções devem preservar o registro original.
-
-A senha e a URL do banco devem ficar somente em variáveis de ambiente locais ou da Vercel. Não as coloque no repositório.
+Antes de operar com valores reais, conecte um banco de homologação, revise as permissões de deploy e execute a bateria de validação funcional, concorrência e recuperação de backup. Não há conexão ativa com banco de produção neste repositório.

@@ -1,4 +1,0 @@
-import { prisma } from "@/lib/db";
-import { formatBRL } from "@/lib/money";
-export const dynamic="force-dynamic";
-export default async function Despesas(){const rows=process.env.DATABASE_URL?await prisma.expense.findMany({orderBy:{dueDate:"asc"},take:100}):[];return <><h1>Contas a pagar</h1><p className="muted">Despesas gerais e por evento, com vencimentos.</p><div className="section card"><table className="table"><thead><tr><th>Descrição</th><th>Categoria</th><th>Vencimento</th><th>Valor</th><th>Status</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{x.description}</td><td>{x.category}</td><td>{x.dueDate.toLocaleDateString("pt-BR",{timeZone:"UTC"})}</td><td>{formatBRL(x.amount)}</td><td>{x.status}</td></tr>)}</tbody></table>{!rows.length&&<p className="empty">Nenhuma conta cadastrada.</p>}</div></>}

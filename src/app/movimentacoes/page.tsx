@@ -1,4 +1,0 @@
-import { prisma } from "@/lib/db";
-import { formatBRL } from "@/lib/money";
-export const dynamic="force-dynamic";
-export default async function Movimentacoes(){const rows=process.env.DATABASE_URL?await prisma.ledgerEntry.findMany({include:{debitAccount:true,creditAccount:true},orderBy:{createdAt:"desc"},take:100}):[];return <><h1>Movimentações</h1><p className="muted">Histórico financeiro rastreável.</p><div className="section card"><table className="table"><thead><tr><th>Data</th><th>Descrição</th><th>Origem</th><th>Destino</th><th>Valor</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{x.createdAt.toLocaleDateString("pt-BR")}</td><td>{x.description}</td><td>{x.debitAccount.name}</td><td>{x.creditAccount.name}</td><td>{formatBRL(x.amount)}</td></tr>)}</tbody></table>{!rows.length&&<p className="empty">Nenhuma movimentação registrada.</p>}</div></>}
