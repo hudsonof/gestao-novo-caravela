@@ -554,6 +554,18 @@ export async function reverseEntry(input: {
       if (original.kind === "DEPOSIT") {
         throw new ApiError(409, "Movimentações de depósito precisam ser corrigidas pelo fluxo do próprio depósito.");
       }
+      if (original.kind === "REVERSAL") throw new ApiError(409, "Um estorno não pode ser estornado; registre um novo ajuste justificado.");
+      if (original.sessionId) {
+        await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashSession" WHERE "id" = ${original.sessionId} FOR UPDATE`;
+        const session = await tx.cashSession.findUnique({ where: { id: original.sessionId }, select: { status: true } });
+        const accounts = await tx.financialAccount.findMany({
+          where: { id: { in: [original.debitAccountId, original.creditAccountId] } },
+          select: { kind: true },
+        });
+        if (session?.status === "CLOSED" && accounts.some((account) => account.kind === "CASH")) {
+          throw new ApiError(409, "Lançamentos de dinheiro de uma sessão fechada não podem ser estornados por ela; faça um ajuste no caixa atual.");
+        }
+      }
       const reversal = await postEntryTx(tx, {
         debitAccountId: original.creditAccountId,
         creditAccountId: original.debitAccountId,

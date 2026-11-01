@@ -19,12 +19,12 @@ export default async function Relatorios({ searchParams }: { searchParams: Promi
   const toText = safeDate(query.to, today);
   let from = businessDayStart(fromText);
   let to = businessDayEnd(toText);
-  if (to < from || to.getTime() - from.getTime() > 366 * 24 * 60 * 60 * 1000) {
+  if (to.getTime() < from.getTime() || to.getTime() - from.getTime() > 366 * 24 * 60 * 60 * 1000) {
     from = businessDayStart(startOfMonth);
     to = businessDayEnd(today);
   }
   const [report, events] = await Promise.all([
-    getCashFlowReport(from <= to ? from : businessDayStart(startOfMonth), from <= to ? to : businessDayEnd(today), query.eventId),
+    getCashFlowReport(from, to, query.eventId),
     prisma.event.findMany({ orderBy: { startsAt: "desc" }, take: 200 }),
   ]);
   return <>

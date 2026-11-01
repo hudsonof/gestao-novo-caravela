@@ -17,9 +17,10 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const actor = await requireAdmin();
     const input = schema.parse(await request.json());
-    const passwordHash = await bcrypt.hash(input.password, 12);
+    const { password, ...userInput } = input;
+    const passwordHash = await bcrypt.hash(password, 12);
     return prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({ data: { ...input, email: input.email.trim().toLowerCase(), passwordHash }, select: { id: true, name: true, email: true, role: true, active: true } });
+      const user = await tx.user.create({ data: { ...userInput, email: input.email.trim().toLowerCase(), passwordHash }, select: { id: true, name: true, email: true, role: true, active: true } });
       await tx.auditLog.create({ data: { actorId: actor.userId, entity: "User", entityId: user.id, action: "CREATE", after: { email: user.email, role: user.role } } });
       return user;
     });

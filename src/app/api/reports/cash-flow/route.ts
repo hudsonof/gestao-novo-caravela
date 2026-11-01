@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const toText = dateSchema.parse(query.get("to") || today);
     const from = businessDayStart(fromText);
     const to = businessDayEnd(toText);
-    if (to < from) throw new ApiError(400, "A data final deve ser posterior à data inicial.");
+    if (to.getTime() < from.getTime()) throw new ApiError(400, "A data final deve ser posterior à data inicial.");
     if (to.getTime() - from.getTime() > 366 * 24 * 60 * 60 * 1000) throw new ApiError(400, "Selecione um período de até 12 meses.");
     return getCashFlowReport(from, to, query.get("eventId") || undefined);
   });
