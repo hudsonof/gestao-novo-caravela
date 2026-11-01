@@ -28,10 +28,6 @@ npm run dev
 
 Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofre, banco, recebíveis, trânsito e contrapartida externa), três caixas de exemplo e o administrador inicial quando as variáveis `INITIAL_ADMIN_*` estão preenchidas. A senha é armazenada com hash; o seed não troca a senha de um usuário que já existe.
 
-### Sobre as variáveis públicas do Supabase
-
-`NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` identificam o projeto e autorizam chamadas ao Supabase Data API/SDK; elas **não são uma URL de conexão PostgreSQL** e não substituem `DATABASE_URL` ou `DIRECT_URL`. Este sistema acessa o Postgres pelo Prisma e usa Auth.js para login, então as duas variáveis públicas estão comentadas no `.env.example` e não são necessárias para o funcionamento atual. Se o projeto passar a usar `supabase-js` no navegador, mantenha RLS habilitado nas tabelas acessíveis pelo cliente. Consulte a [documentação Prisma do Supabase](https://supabase.com/docs/guides/database/prisma) e a [documentação de API keys](https://supabase.com/docs/guides/getting-started/api-keys).
-
 ## Módulos disponíveis
 
 - Eventos com estados planejado, aberto e encerrado.
