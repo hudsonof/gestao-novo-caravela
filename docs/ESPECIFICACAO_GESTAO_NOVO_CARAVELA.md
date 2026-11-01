@@ -520,9 +520,9 @@ Server Actions podem ser usadas nas operações internas da UI; Route Handlers s
 
 ## 14. Situação do desenvolvimento
 
-Foi preparada uma **base inicial local** com Next.js, Prisma, serviços de movimentação e telas de consulta, mas isso não equivale à conclusão do MVP. Permanecem pendentes: autenticação/autorização, migrations verificadas em PostgreSQL real, CRUDs completos, integrações, conciliação, testes de integração e concorrência, auditoria integral e homologação.
+A base inicial foi incorporada à branch main. Ela inclui Next.js, Prisma, telas de consulta, serviços para transferências e fechamento e um endpoint de saúde. Isso ainda não equivale à conclusão do MVP. Permanecem pendentes: autenticação/autorização, migrations verificadas em PostgreSQL real, operações de escrita na interface e API, abertura de sessões e distribuição de troco, integrações, conciliação, auditoria integral e homologação.
 
-O repositório privado informado pelo responsável é `https://github.com/hudsonof/gestao-novo-caravela.git`. A publicação de arquivos no GitHub depende de acesso de escrita autorizado; esta especificação não afirma que o repositório já foi atualizado.
+O repositório do projeto é `https://github.com/hudsonof/gestao-novo-caravela`. Esta especificação está versionada em `docs/ESPECIFICACAO_GESTAO_NOVO_CARAVELA.md`; a base inicial está na branch `main`. O sistema ainda não está homologado para registrar dinheiro real.
 
 ## 15. Próximos passos
 
