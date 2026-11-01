@@ -5,13 +5,16 @@ Sistema web para gestão do fluxo de caixa do salão de eventos Novo Caravela.
 ## Stack
 
 - Next.js App Router, React e TypeScript
-- PostgreSQL e Prisma ORM 6
+- PostgreSQL no Supabase e Prisma ORM 6
 - Auth.js Credentials para acesso de administradores e gerentes
 - Deploy previsto na Vercel
 
 ## Preparar ambiente
 
-1. Copie `.env.example` para `.env` e configure `DATABASE_URL` para um PostgreSQL acessível.
+1. Copie `.env.example` para `.env` e obtenha as URLs em **Supabase Dashboard → Connect**:
+   - `DATABASE_URL`: use o **Transaction pooler** (porta 6543) para as conexões da aplicação na Vercel. O exemplo inclui `pgbouncer=true` e `connection_limit=1`.
+   - `DIRECT_URL`: use o **Session pooler** (porta 5432) ou a conexão direta, se o ambiente tiver suporte de rede compatível. O Prisma CLI usa essa URL para gerar e aplicar migrations.
+   - Copie as strings exibidas pelo Supabase e substitua os valores do exemplo. Se a senha tiver caracteres reservados em URL, faça o percent-encoding deles.
 2. Gere um `AUTH_SECRET` aleatório, ajuste `BUSINESS_TIME_ZONE` para o fuso do salão e defina as credenciais iniciais de administrador. A senha inicial precisa ter ao menos 14 caracteres.
 3. Instale as dependências e aplique o schema:
 
@@ -24,6 +27,10 @@ npm run dev
 ```
 
 Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofre, banco, recebíveis, trânsito e contrapartida externa), três caixas de exemplo e o administrador inicial quando as variáveis `INITIAL_ADMIN_*` estão preenchidas. A senha é armazenada com hash; o seed não troca a senha de um usuário que já existe.
+
+### Sobre as variáveis públicas do Supabase
+
+`NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` identificam o projeto e autorizam chamadas ao Supabase Data API/SDK; elas **não são uma URL de conexão PostgreSQL** e não substituem `DATABASE_URL` ou `DIRECT_URL`. Este sistema acessa o Postgres pelo Prisma e usa Auth.js para login, então as duas variáveis públicas estão comentadas no `.env.example` e não são necessárias para o funcionamento atual. Se o projeto passar a usar `supabase-js` no navegador, mantenha RLS habilitado nas tabelas acessíveis pelo cliente. Consulte a [documentação Prisma do Supabase](https://supabase.com/docs/guides/database/prisma) e a [documentação de API keys](https://supabase.com/docs/guides/getting-started/api-keys).
 
 ## Módulos disponíveis
 
@@ -59,6 +66,6 @@ A integração Stone permanece como etapa futura, condicionada à disponibilidad
 
 ## Implantação
 
-Use PostgreSQL gerenciado com backups e conexão adequada a serverless. Configure `DATABASE_URL`, `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis da Vercel; aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
+Configure `DATABASE_URL` (pooler transacional), `DIRECT_URL` (pooler de sessão ou conexão direta), `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis do ambiente da Vercel. Aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
 
 Antes de operar com valores reais, conecte um banco de homologação, revise as permissões de deploy e execute a bateria de validação funcional, concorrência e recuperação de backup. Não há conexão ativa com banco de produção neste repositório.
