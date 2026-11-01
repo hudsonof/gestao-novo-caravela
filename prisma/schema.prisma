@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole { ADMIN MANAGER }
+enum EventStatus { PLANNED OPEN CLOSING CLOSED CANCELLED }
+enum Sector { TICKETS TABLES BAR }
+enum SessionStatus { OPEN CLOSED }
+enum AccountKind { FUND VAULT CASH BANK TRANSIT EXTERNAL RECEIVABLE }
+enum EntryKind { SALE EXPENSE TRANSFER ADJUSTMENT REVERSAL DEPOSIT }
+enum PaymentMethod { CASH PIX DEBIT CREDIT BANK_TRANSFER }
+enum ExpenseStatus { OPEN PARTIAL PAID CANCELLED }
+enum DepositStatus { PREPARED IN_TRANSIT CONFIRMED CANCELLED }
+
+model User {
+  id        String @id @default(uuid())
+  name      String
+  email     String @unique
+  role      UserRole @default(MANAGER)
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Employee {
+  id        String @id @default(uuid())
+  name      String
+  position  String?
+  active    Boolean @default(true)
+  sessions  CashSession[]
+}
+
+model Event {
+  id           String @id @default(uuid())
+  name         String
+  startsAt     DateTime
+  endsAt       DateTime?
+  status       EventStatus @default(PLANNED)
+  notes        String?
+  createdAt    DateTime @default(now())
+  sessions     CashSession[]
+  entries      LedgerEntry[]
+  expenses     Expense[]
+  @@index([startsAt])
+}
+
+model CashRegister {
+  id          String @id @default(uuid())
+  name        String @unique
+  sector      Sector
+  active      Boolean @default(true)
+  sessions    CashSession[]
+}
+
+model FinancialAccount {
+  id          String @id @default(uuid())
+  name        String @unique
+  kind        AccountKind
+  balance     Decimal @default(0) @db.Decimal(18,2)
+  createdAt   DateTime @default(now())
+  session     CashSession?
+  debits      LedgerEntry[] @relation("EntryDebit")
+  credits     LedgerEntry[] @relation("EntryCredit")
+}
+
+model CashSession {
+  id           String @id @default(uuid())
+  eventId      String
+  registerId   String
+  accountId    String @unique
+  employeeId   String?
+  openedById   String
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+  status       SessionStatus @default(OPEN)
+  event        Event @relation(fields:[eventId], references:[id])
+  register     CashRegister @relation(fields:[registerId], references:[id])
+  account      FinancialAccount @relation(fields:[accountId], references:[id])
+  employee     Employee? @relation(fields:[employeeId], references:[id])
+  closing      CashClosing?
+  @@index([registerId,status])
+}
+
+// Every entry moves value from debitAccount to creditAccount.
+// EXTERNAL represents money entering/leaving the organization.
+model LedgerEntry {
+  id              String @id @default(uuid())
+  eventId         String?
+  debitAccountId  String
+  creditAccountId String
+  kind            EntryKind
+  method          PaymentMethod?
+  amount          Decimal @db.Decimal(18,2)
+  description     String
+  idempotencyKey  String @unique
+  reversalOfId    String? @unique
+  createdById     String
+  createdAt       DateTime @default(now())
+  event           Event? @relation(fields:[eventId], references:[id])
+  debitAccount    FinancialAccount @relation("EntryDebit", fields:[debitAccountId], references:[id])
+  creditAccount   FinancialAccount @relation("EntryCredit", fields:[creditAccountId], references:[id])
+  expensePayment  ExpensePayment?
+  @@index([eventId,createdAt])
+  @@index([debitAccountId,createdAt])
+  @@index([creditAccountId,createdAt])
+}
+
+model CashClosing {
+  id             String @id @default(uuid())
+  sessionId      String @unique
+  expectedAmount Decimal @db.Decimal(18,2)
+  countedAmount  Decimal @db.Decimal(18,2)
+  difference     Decimal @db.Decimal(18,2)
+  justification  String?
+  closedById     String
+  createdAt      DateTime @default(now())
+  session        CashSession @relation(fields:[sessionId],references:[id])
+}
+
+model Expense {
+  id          String @id @default(uuid())
+  eventId     String?
+  description String
+  category    String
+  supplier    String?
+  amount      Decimal @db.Decimal(18,2)
+  dueDate     DateTime
+  status      ExpenseStatus @default(OPEN)
+  createdAt   DateTime @default(now())
+  event       Event? @relation(fields:[eventId],references:[id])
+  payments    ExpensePayment[]
+  @@index([status,dueDate])
+}
+
+model ExpensePayment {
+  id          String @id @default(uuid())
+  expenseId   String
+  entryId     String @unique
+  amount      Decimal @db.Decimal(18,2)
+  paidAt      DateTime @default(now())
+  expense     Expense @relation(fields:[expenseId],references:[id])
+  entry       LedgerEntry @relation(fields:[entryId],references:[id])
+}
+
+model Deposit {
+  id             String @id @default(uuid())
+  amount         Decimal @db.Decimal(18,2)
+  status         DepositStatus @default(PREPARED)
+  withdrawalId   String @unique
+  confirmationId String? @unique
+  bankReference  String?
+  createdById    String
+  confirmedAt    DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model AuditLog {
+  id        String @id @default(uuid())
+  actorId   String
+  entity    String
+  entityId  String
+  action    String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+  @@index([entity,entityId])
+}

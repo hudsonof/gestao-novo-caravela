@@ -1,0 +1,3 @@
+import { prisma } from "@/lib/db";
+export const dynamic="force-dynamic";
+export default async function Eventos(){const data=process.env.DATABASE_URL?await prisma.event.findMany({orderBy:{startsAt:"desc"},take:100}):[];return <><h1>Eventos</h1><p className="muted">Eventos planejados, abertos e encerrados.</p><div className="section card"><table className="table"><thead><tr><th>Nome</th><th>Data</th><th>Status</th></tr></thead><tbody>{data.map(e=><tr key={e.id}><td>{e.name}</td><td>{e.startsAt.toLocaleDateString("pt-BR")}</td><td><span className="tag">{e.status}</span></td></tr>)}</tbody></table>{!data.length&&<p className="empty">Nenhum evento cadastrado.</p>}</div></>}
