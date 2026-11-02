@@ -43,3 +43,33 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     });
   });
 }
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  return handleApi(async () => {
+    const actor = await requireManager();
+    const { id } = await context.params;
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegister" WHERE "id" = ${id} FOR UPDATE`;
+      const current = await tx.cashRegister.findUnique({
+        where: { id },
+        include: { _count: { select: { sessions: true } } },
+      });
+      if (!current) throw new ApiError(404, "Caixa não encontrado.");
+      if (current._count.sessions > 0) {
+        throw new ApiError(409, "Caixas com histórico não podem ser excluídos. Inative este caixa para preservar os registros financeiros.");
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.userId,
+          entity: "CashRegister",
+          entityId: id,
+          action: "DELETE",
+          before: { name: current.name, sector: current.sector, active: current.active },
+        },
+      });
+      await tx.cashRegister.delete({ where: { id } });
+      return { id, deleted: true };
+    });
+  });
+}
