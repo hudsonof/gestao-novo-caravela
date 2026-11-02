@@ -48,20 +48,6 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
     <h1>Caixas e sessões</h1>
     <p className="muted">Bilheteria, mesas e bar · cada sessão pertence a um evento e a um colaborador.</p>
 
-    <CashRegisterManager
-      registers={registers.map((register) => ({
-        id: register.id,
-        name: register.name,
-        sector: register.sector,
-        active: register.active,
-        totalSessions: register._count.sessions,
-        openSessions: register.sessions.length,
-      }))}
-      currentPage={currentPage}
-      totalPages={totalPages}
-      totalRegisters={totalRegisters}
-    />
-
     <section className="section">
       <ApiForm endpoint="/api/cash-sessions" title="Abrir sessão de caixa" fields={[
         { name: "eventId", label: "Evento aberto", type: "select", options: eventOptions },
@@ -100,5 +86,19 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
         ]} submitLabel="Transferir para o cofre" />}
       </div>)}</div> : <div className="card empty">Todos os caixas encerrados estão sem saldo pendente.</div>}
     </section>
+
+    <CashRegisterManager
+      registers={registers.map((register) => ({
+        id: register.id,
+        name: register.name,
+        sector: register.sector,
+        active: register.active,
+        totalSessions: register._count.sessions,
+        openSessions: register.sessions.length,
+      }))}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      totalRegisters={totalRegisters}
+    />
   </>;
 }
