@@ -35,7 +35,6 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
           expensesCreated: true,
           expensePaymentsCreated: true,
           depositsCreated: true,
-          depositAttachments: true,
           compensationsCreated: true,
           employeePaymentsCreated: true,
           auditLogs: true,
