@@ -1,0 +1,30 @@
+name: Backup PostgreSQL
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    if: ${{ vars.DATABASE_BACKUP_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      SUPABASE_STORAGE_URL: ${{ vars.SUPABASE_STORAGE_URL }}
+      SUPABASE_STORAGE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STORAGE_SERVICE_ROLE_KEY }}
+      DEPOSIT_PROOFS_BUCKET: ${{ vars.DEPOSIT_PROOFS_BUCKET }}
+      BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+      BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client and age
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client age
+      - name: Create, verify, encrypt, and upload backup
+        run: bash scripts/backup-postgres.sh

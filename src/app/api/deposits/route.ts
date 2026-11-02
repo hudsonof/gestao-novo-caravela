@@ -9,7 +9,7 @@ const schema = z.object({ amount: z.string(), description: z.string().trim().max
 export async function GET() {
   return handleApi(async () => {
     await requireManager();
-    return prisma.deposit.findMany({ include: { withdrawal: true, confirmation: true, createdBy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 300 });
+    return prisma.deposit.findMany({ include: { withdrawal: true, confirmation: true, attachments: { select: { id: true, originalFileName: true, contentType: true, sizeBytes: true, createdAt: true } }, createdBy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 300 });
   });
 }
 

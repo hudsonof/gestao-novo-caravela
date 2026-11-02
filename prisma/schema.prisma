@@ -97,6 +97,7 @@ model User {
   expensesCreated Expense[]         @relation("ExpenseCreator")
   expensePaymentsCreated ExpensePayment[] @relation("ExpensePaymentCreator")
   depositsCreated Deposit[]     @relation("DepositCreator")
+  depositAttachments DepositAttachment[] @relation("DepositAttachmentUploader")
   compensationsCreated EmployeeCompensation[] @relation("EmployeeCompensationCreator")
   employeePaymentsCreated EmployeePayment[] @relation("EmployeePaymentCreator")
   auditLogs       AuditLog[]    @relation("AuditActor")
@@ -328,8 +329,25 @@ model Deposit {
   withdrawal     LedgerEntry   @relation("DepositWithdrawal", fields: [withdrawalId], references: [id], onDelete: Restrict)
   confirmation   LedgerEntry?  @relation("DepositConfirmation", fields: [confirmationId], references: [id], onDelete: Restrict)
   createdBy      User          @relation("DepositCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  attachments    DepositAttachment[]
 
   @@index([status, createdAt])
+}
+
+model DepositAttachment {
+  id               String   @id @default(uuid())
+  depositId        String
+  storagePath      String   @unique
+  originalFileName String
+  contentType      String
+  sizeBytes        Int
+  sha256           String
+  uploadedById     String
+  createdAt        DateTime @default(now())
+  deposit          Deposit  @relation(fields: [depositId], references: [id], onDelete: Restrict)
+  uploadedBy       User     @relation("DepositAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([depositId, createdAt])
 }
 
 model AuditLog {

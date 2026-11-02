@@ -1,0 +1,48 @@
+name: Simulação de restauração em homologação
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_object:
+        description: Caminho do objeto, por exemplo backups/2026/11/02/arquivo.tar.gz.age
+        required: true
+        type: string
+      confirmation:
+        description: Digite RESTORE_STAGING para substituir o banco do ambiente staging
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RESTORE_CONFIRMATION: ${{ inputs.confirmation }}
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      BACKUP_OBJECT: ${{ inputs.backup_object }}
+      SUPABASE_STORAGE_URL: ${{ vars.SUPABASE_STORAGE_URL }}
+      SUPABASE_STORAGE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STORAGE_SERVICE_ROLE_KEY }}
+      BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+      STAGING_SUPABASE_STORAGE_URL: ${{ vars.STAGING_SUPABASE_STORAGE_URL }}
+      STAGING_SUPABASE_STORAGE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_STORAGE_SERVICE_ROLE_KEY }}
+      STAGING_DEPOSIT_PROOFS_BUCKET: ${{ vars.STAGING_DEPOSIT_PROOFS_BUCKET }}
+      BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client and age
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client age
+      - name: Prepare decryption identity
+        run: |
+          test -n "$BACKUP_AGE_IDENTITY"
+          printf '%s\n' "$BACKUP_AGE_IDENTITY" > "$RUNNER_TEMP/backup-age-identity"
+          chmod 600 "$RUNNER_TEMP/backup-age-identity"
+          echo "BACKUP_AGE_IDENTITY_FILE=$RUNNER_TEMP/backup-age-identity" >> "$GITHUB_ENV"
+      - name: Restore and validate isolated staging database
+        run: bash scripts/restore-postgres.sh
