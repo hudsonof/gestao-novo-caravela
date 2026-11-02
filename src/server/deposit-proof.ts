@@ -23,7 +23,8 @@ export function validateDepositProofMetadata(input: {
   if (!fileName || fileName.length > 180 || /[\\/\u0000-\u001f\u007f]/.test(fileName)) {
     throw new ApiError(400, "Nome de arquivo inválido.");
   }
-  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes < 1) throw new ApiError(400, "O arquivo está vazio ou tem tamanho inválido.");
+  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes < 0) throw new ApiError(400, "O tamanho do arquivo é inválido.");
+  if (input.sizeBytes === 0) throw new ApiError(400, "O arquivo está vazio.");
   if (input.sizeBytes > MAX_DEPOSIT_PROOF_BYTES) {
     throw new ApiError(413, "O comprovante deve ter no máximo 10 MB.");
   }
