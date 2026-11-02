@@ -7,6 +7,7 @@ const eventSchema = z.object({
   name: z.string().trim().min(2).max(120),
   startsAt: z.coerce.date(),
   endsAt: z.preprocess((value) => value === "" || value === null ? undefined : value, z.coerce.date().optional()),
+  responsibleName: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
 

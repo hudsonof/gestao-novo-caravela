@@ -30,13 +30,15 @@ Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofr
 
 ## Módulos disponíveis
 
-- Eventos com estados planejado, aberto e encerrado.
-- Caixas por setor (Bilheteria, Mesas e Bar), sessões por evento e colaborador, fundo de troco, sangria para o cofre e fechamento com contagem física.
+- Eventos com estados planejado, aberto, encerrado e cancelado; eventos planejados podem ser editados e têm responsável identificado.
+- Cadastro de caixas por setor com edição antes do primeiro uso e inativação preservando o histórico; sessões por evento e colaborador, fundo de troco, sangria para o cofre e fechamento com contagem física.
 - Entradas em dinheiro, Pix, débito, crédito e transferência bancária.
-- Despesas vinculadas a evento ou gerais, vencimentos e pagamentos parciais.
+- Despesas vinculadas a evento ou gerais, categorias padronizadas, vencimentos sinalizados e pagamentos parciais.
+- Cadastro de categorias de receitas e despesas, com inativação preservando os nomes usados em lançamentos históricos.
+- Diárias e cachês por colaborador, com associação opcional a evento, pagamentos parciais, estorno e histórico.
 - Transferências entre contas, fundo central, cofre, valores em trânsito, recebíveis e banco.
 - Preparação, confirmação bancária ou cancelamento auditado de depósitos.
-- Resumos por período, método, categoria, conta e divergência de fechamento.
+- Resumos por período, evento, método, categoria, conta e divergência de fechamento, com exportação CSV e consulta da trilha de auditoria.
 - Cadastro de colaboradores sem credencial e usuários ADMIN/MANAGER com controle de acesso.
 - Estornos por novo lançamento, trilha de auditoria e chaves de idempotência.
 
@@ -52,11 +54,13 @@ Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofr
 
 ## Integração de adquirente
 
-A integração Stone permanece como etapa futura, condicionada à disponibilidade de credenciais e documentação/API para liquidação e conciliação. O sistema registra vendas manualmente por meio de pagamento e mantém cartão em recebíveis até transferência/baixa.
+A API `POST /api/transactions/import` aceita vendas normalizadas com origem e referência externa únicas, para permitir uma futura ingestão idempotente. A integração automática Stone permanece pendente de credenciais e documentação/API para liquidação e conciliação. O sistema registra vendas manualmente por meio de pagamento e mantém cartão em recebíveis até transferência/baixa.
+
+O cadastro do responsável pelo transporte do depósito e a referência textual do comprovante são registrados. O upload privado de arquivos ainda exige a configuração de um serviço de armazenamento seguro.
 
 ## Rotas principais
 
-- Telas: `/`, `/eventos`, `/caixas`, `/movimentacoes`, `/despesas`, `/cofre`, `/relatorios`, `/equipe`, `/usuarios` (administrador).
+- Telas: `/`, `/eventos`, `/caixas`, `/movimentacoes`, `/despesas`, `/cofre`, `/relatorios`, `/auditoria`, `/equipe`, `/usuarios` (administrador).
 - APIs de escrita financeira e cadastro são protegidas por sessão autenticada; a exceção pública é a checagem de saúde da aplicação.
 - As rotas de API validam payloads, registram o ator e usam idempotência em operações financeiras.
 
@@ -65,3 +69,5 @@ A integração Stone permanece como etapa futura, condicionada à disponibilidad
 Configure `DATABASE_URL` (pooler transacional), `DIRECT_URL` (pooler de sessão ou conexão direta), `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis do ambiente da Vercel. Aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
 
 Antes de operar com valores reais, conecte um banco de homologação, revise as permissões de deploy e execute a bateria de validação funcional, concorrência e recuperação de backup. Não há conexão ativa com banco de produção neste repositório.
+
+As migrations mais recentes adicionam responsáveis do evento e do transporte do depósito, referências externas de movimentações, categorias financeiras e controle de diárias/cachês. Aplique-as com `npm run db:deploy` e execute `npm run db:seed` para cadastrar as categorias iniciais antes de publicar a versão. Backups, recuperação e monitoramento de produção ainda precisam ser configurados no provedor de hospedagem.

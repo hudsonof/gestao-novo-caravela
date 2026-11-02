@@ -11,7 +11,9 @@ const links = [
   ["/despesas", "Contas a pagar"],
   ["/cofre", "Cofre central"],
   ["/relatorios", "Relatórios"],
+  ["/auditoria", "Auditoria"],
   ["/equipe", "Colaboradores"],
+  ["/categorias", "Categorias"],
 ];
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {

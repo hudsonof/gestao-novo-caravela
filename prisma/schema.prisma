@@ -73,6 +73,16 @@ enum DepositStatus {
   CANCELLED
 }
 
+enum EmployeeCompensationType {
+  DAILY
+  CACHE
+}
+
+enum FinanceCategoryType {
+  INCOME
+  EXPENSE
+}
+
 model User {
   id              String        @id @default(uuid())
   name            String
@@ -87,6 +97,8 @@ model User {
   expensesCreated Expense[]         @relation("ExpenseCreator")
   expensePaymentsCreated ExpensePayment[] @relation("ExpensePaymentCreator")
   depositsCreated Deposit[]     @relation("DepositCreator")
+  compensationsCreated EmployeeCompensation[] @relation("EmployeeCompensationCreator")
+  employeePaymentsCreated EmployeePayment[] @relation("EmployeePaymentCreator")
   auditLogs       AuditLog[]    @relation("AuditActor")
 }
 
@@ -98,12 +110,24 @@ model LoginAttempt {
   updatedAt       DateTime @updatedAt
 }
 
+model FinanceCategory {
+  id        String             @id @default(uuid())
+  name      String
+  type      FinanceCategoryType
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now())
+
+  @@unique([name, type])
+  @@index([type, active])
+}
+
 model Employee {
   id        String        @id @default(uuid())
   name      String
   position  String?
   active    Boolean       @default(true)
   sessions  CashSession[]
+  compensations EmployeeCompensation[]
 }
 
 model Event {
@@ -113,10 +137,12 @@ model Event {
   endsAt    DateTime?
   status    EventStatus    @default(PLANNED)
   notes     String?
+  responsibleName String?
   createdAt DateTime       @default(now())
   sessions  CashSession[]
   entries   LedgerEntry[]
   expenses  Expense[]
+  compensations EmployeeCompensation[]
 
   @@index([startsAt])
   @@index([status, startsAt])
@@ -177,6 +203,8 @@ model LedgerEntry {
   kind            EntryKind
   method          PaymentMethod?
   category        String?
+  externalSource  String           @default("MANUAL")
+  externalReference String?
   amount          Decimal          @db.Decimal(18, 2)
   description     String
   idempotencyKey  String           @unique
@@ -193,12 +221,14 @@ model LedgerEntry {
   expensePayment  ExpensePayment?
   depositWithdrawal Deposit?       @relation("DepositWithdrawal")
   depositConfirmation Deposit?     @relation("DepositConfirmation")
+  employeePayment EmployeePayment?
 
   @@index([eventId, createdAt])
   @@index([sessionId, createdAt])
   @@index([debitAccountId, createdAt])
   @@index([creditAccountId, createdAt])
   @@index([kind, createdAt])
+  @@unique([externalSource, externalReference])
 }
 
 model CashClosing {
@@ -248,6 +278,42 @@ model ExpensePayment {
   @@index([expenseId, paidAt])
 }
 
+model EmployeeCompensation {
+  id             String                   @id @default(uuid())
+  idempotencyKey String                   @unique
+  employeeId     String
+  eventId        String?
+  type           EmployeeCompensationType
+  description    String
+  amount         Decimal                  @db.Decimal(18, 2)
+  dueDate        DateTime
+  status         ExpenseStatus            @default(OPEN)
+  createdById    String
+  createdAt      DateTime                 @default(now())
+  employee       Employee                 @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  event          Event?                   @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  createdBy      User                     @relation("EmployeeCompensationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  payments       EmployeePayment[]
+
+  @@index([employeeId, dueDate])
+  @@index([status, dueDate])
+  @@index([eventId, dueDate])
+}
+
+model EmployeePayment {
+  id             String               @id @default(uuid())
+  compensationId String
+  entryId        String               @unique
+  amount         Decimal              @db.Decimal(18, 2)
+  paidAt         DateTime             @default(now())
+  createdById    String
+  compensation   EmployeeCompensation @relation(fields: [compensationId], references: [id], onDelete: Restrict)
+  entry          LedgerEntry          @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  createdBy      User                 @relation("EmployeePaymentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([compensationId, paidAt])
+}
+
 model Deposit {
   id             String        @id @default(uuid())
   amount         Decimal       @db.Decimal(18, 2)
@@ -255,6 +321,7 @@ model Deposit {
   withdrawalId   String        @unique
   confirmationId String?       @unique
   bankReference  String?
+  transportResponsible String?
   createdById    String
   confirmedAt    DateTime?
   createdAt      DateTime      @default(now())
