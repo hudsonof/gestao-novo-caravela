@@ -56,6 +56,7 @@ export function ApiForm({
   hidden,
   submitLabel = "Salvar",
   method = "POST",
+  onSuccess,
 }: {
   endpoint: string;
   title: string;
@@ -63,6 +64,7 @@ export function ApiForm({
   hidden?: Record<string, string>;
   submitLabel?: string;
   method?: "POST" | "PATCH";
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -106,6 +108,7 @@ export function ApiForm({
       idempotencyKey.current = null;
       formElement.reset();
       router.refresh();
+      onSuccess?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível salvar.");
     } finally {
