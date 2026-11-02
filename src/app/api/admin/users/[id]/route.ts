@@ -19,7 +19,6 @@ const historyRelations = {
   expensesCreated: true,
   expensePaymentsCreated: true,
   depositsCreated: true,
-  depositAttachments: true,
   compensationsCreated: true,
   employeePaymentsCreated: true,
   auditLogs: true,
