@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiForm } from "@/components/api-form";
 
@@ -93,7 +93,7 @@ export function EmployeeManager({
   }
 
   let dialogTitle = "";
-  let dialogContent = null;
+  let dialogContent: ReactNode = null;
 
   if (dialog?.kind === "CREATE") {
     dialogTitle = "Novo colaborador";
