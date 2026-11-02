@@ -7,16 +7,21 @@ const add = (map: Map<string, Prisma.Decimal>, key: string, amount: Prisma.Decim
   map.set(key, (map.get(key) ?? zero()).plus(amount));
 
 export async function getCashFlowReport(from: Date, to: Date, eventId?: string) {
-  const [entries, accounts, expenses, deposits, closings] = await Promise.all([
+  const [entries, accounts, expenses, compensations, deposits, closings] = await Promise.all([
     prisma.ledgerEntry.findMany({
       where: { createdAt: { gte: from, lte: to }, ...(eventId ? { eventId } : {}) },
-      include: { reversalOf: true },
+      include: { reversalOf: true, session: { include: { register: { select: { sector: true } } } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.financialAccount.findMany({ where: { active: true }, orderBy: [{ kind: "asc" }, { name: "asc" }] }),
     prisma.expense.findMany({
       where: { status: { in: ["OPEN", "PARTIAL"] }, ...(eventId ? { eventId } : {}) },
       include: { payments: { include: { entry: { include: { reversals: true } } } } },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.employeeCompensation.findMany({
+      where: { status: { in: ["OPEN", "PARTIAL"] }, ...(eventId ? { eventId } : {}) },
+      include: { employee: { select: { name: true } }, event: { select: { name: true } }, payments: { include: { entry: { include: { reversals: true } } } } },
       orderBy: { dueDate: "asc" },
     }),
     prisma.deposit.findMany({ where: { status: "IN_TRANSIT" }, orderBy: { createdAt: "asc" } }),
@@ -28,6 +33,7 @@ export async function getCashFlowReport(from: Date, to: Date, eventId?: string) 
   let adjustmentIn = zero();
   let adjustmentOut = zero();
   const byMethod = new Map<string, Prisma.Decimal>();
+  const bySector = new Map<string, Prisma.Decimal>();
   const byCategory = new Map<string, Prisma.Decimal>();
   const daily = new Map<string, { inflows: Prisma.Decimal; outflows: Prisma.Decimal }>();
   const accountKinds = new Map(accounts.map((account) => [account.id, account.kind]));
@@ -55,6 +61,7 @@ export async function getCashFlowReport(from: Date, to: Date, eventId?: string) 
       const amount = entry.amount.mul(sign);
       sales = sales.plus(amount);
       add(byMethod, method || "OUTROS", amount);
+      add(bySector, entry.session?.register.sector || "SEM_SETOR", amount);
       applyDaily(entry.createdAt, amount.isNegative() ? "outflows" : "inflows", amount.abs());
     } else if (kind === "EXPENSE") {
       const amount = entry.amount.mul(sign);
@@ -77,7 +84,8 @@ export async function getCashFlowReport(from: Date, to: Date, eventId?: string) 
     }
   }
 
-  const pendingPayables = expenses.map((expense) => {
+  const todayKey = businessDateKey(new Date());
+  const expensePayables = expenses.map((expense) => {
     const paid = expense.payments.reduce(
       (sum, payment) => sum.plus(payment.entry.reversals.length ? 0 : payment.amount),
       zero(),
@@ -89,10 +97,26 @@ export async function getCashFlowReport(from: Date, to: Date, eventId?: string) 
       dueDate: expense.dueDate,
       amount: expense.amount.toFixed(2),
       remaining: expense.amount.minus(paid).toFixed(2),
-      status: expense.status,
+      status: expense.dueDate.toISOString().slice(0, 10) < todayKey ? "OVERDUE" : expense.status,
       eventId: expense.eventId,
+      kind: "DESPESA",
     };
   });
+  const employeePayables = compensations.map((compensation) => {
+    const paid = compensation.payments.reduce((sum, payment) => sum.plus(payment.entry.reversals.length ? 0 : payment.amount), zero());
+    return {
+      id: compensation.id,
+      description: `${compensation.employee.name} · ${compensation.description}`,
+      category: compensation.type === "DAILY" ? "Diárias" : "Cachês",
+      dueDate: compensation.dueDate,
+      amount: compensation.amount.toFixed(2),
+      remaining: compensation.amount.minus(paid).toFixed(2),
+      status: compensation.dueDate.toISOString().slice(0, 10) < todayKey ? "OVERDUE" : compensation.status,
+      eventId: compensation.eventId,
+      kind: "COLABORADOR",
+    };
+  });
+  const pendingPayables = [...expensePayables, ...employeePayables].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
   const accountBalances = accounts.filter((account) => account.kind !== "EXTERNAL").map((account) => ({
     id: account.id,
     name: account.name,
@@ -111,11 +135,12 @@ export async function getCashFlowReport(from: Date, to: Date, eventId?: string) 
       adjustmentIn: adjustmentIn.toFixed(2),
       adjustmentOut: adjustmentOut.toFixed(2),
       netCashFlow: net.toFixed(2),
-      pendingPayables: pendingPayables.reduce((sum, expense) => sum.plus(expense.remaining), zero()).toFixed(2),
+      pendingPayables: pendingPayables.reduce((sum, payable) => sum.plus(payable.remaining), zero()).toFixed(2),
       depositsInTransit: pendingDepositTotal.toFixed(2),
       closingVariances: varianceTotal.toFixed(2),
     },
     salesByMethod: Array.from(byMethod, ([method, amount]) => ({ method, amount: amount.toFixed(2) })),
+    salesBySector: Array.from(bySector, ([sector, amount]) => ({ sector, amount: amount.toFixed(2) })),
     expensesByCategory: Array.from(byCategory, ([category, amount]) => ({ category, amount: amount.toFixed(2) })),
     daily: Array.from(daily, ([date, amount]) => ({
       date,

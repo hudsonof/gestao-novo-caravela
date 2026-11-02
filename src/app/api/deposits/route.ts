@@ -4,7 +4,7 @@ import { handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 import { prepareDeposit } from "@/server/finance";
 
-const schema = z.object({ amount: z.string(), description: z.string().trim().max(240).optional(), idempotencyKey: z.string().optional() });
+const schema = z.object({ amount: z.string(), description: z.string().trim().max(240).optional(), transportResponsible: z.string().trim().max(120).optional(), idempotencyKey: z.string().optional() });
 
 export async function GET() {
   return handleApi(async () => {

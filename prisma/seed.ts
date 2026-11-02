@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaClient, AccountKind, Sector } from "@prisma/client";
+import { PrismaClient, AccountKind, FinanceCategoryType, Sector } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -18,6 +18,18 @@ async function main() {
       where: { name: account.name },
       update: { kind: account.kind, active: true },
       create: account,
+    });
+  }
+
+  const categories: Array<{ name: string; type: FinanceCategoryType }> = [
+    ...["Ingressos", "Mesas", "Bar", "Eventos", "Outras receitas"].map((name) => ({ name, type: "INCOME" as const })),
+    ...["Bebidas", "Alimentação", "Equipe", "Estrutura", "Manutenção", "Marketing", "Segurança", "Taxas", "Transporte", "Outros"].map((name) => ({ name, type: "EXPENSE" as const })),
+  ];
+  for (const category of categories) {
+    await prisma.financeCategory.upsert({
+      where: { name_type: { name: category.name, type: category.type } },
+      update: { active: true },
+      create: category,
     });
   }
 

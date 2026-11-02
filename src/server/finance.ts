@@ -32,6 +32,8 @@ export async function registerSale(input: {
   method: PaymentMethod;
   description: string;
   category?: string;
+  externalSource?: string;
+  externalReference?: string;
   eventId?: string;
   sessionId?: string;
   idempotencyKey: string;
@@ -43,9 +45,27 @@ export async function registerSale(input: {
       if (prior) {
         const same = prior.kind === "SALE" && prior.amount.equals(amount) && prior.method === input.method &&
           prior.description === input.description.trim() && prior.category === (input.category?.trim() || null) &&
-          prior.sessionId === (input.sessionId || null) && (!input.eventId || prior.eventId === input.eventId);
+          prior.sessionId === (input.sessionId || null) && (!input.eventId || prior.eventId === input.eventId) &&
+          prior.externalSource === (input.externalSource?.trim().toUpperCase() || "MANUAL") &&
+          prior.externalReference === (input.externalReference?.trim() || null);
         if (!same) throw new ApiError(409, "A chave de idempotência já foi usada em outra operação.");
         return prior;
+      }
+      const externalSource = input.externalSource?.trim().toUpperCase() || "MANUAL";
+      const externalReference = input.externalReference?.trim();
+      if (externalReference) {
+        const imported = await tx.ledgerEntry.findFirst({ where: { externalSource, externalReference } });
+        if (imported) {
+          const same = imported.kind === "SALE" && imported.amount.equals(amount) && imported.method === input.method &&
+            imported.description === input.description.trim() && imported.category === (input.category?.trim() || null) &&
+            imported.sessionId === (input.sessionId || null) && (!input.eventId || imported.eventId === input.eventId);
+          if (!same) throw new ApiError(409, "A referência externa já foi importada com dados diferentes.");
+          return imported;
+        }
+      }
+      if (input.category?.trim()) {
+        const category = await tx.financeCategory.findUnique({ where: { name_type: { name: input.category.trim(), type: "INCOME" } } });
+        if (!category?.active) throw new ApiError(400, "Selecione uma categoria de receita ativa.");
       }
       let session: Awaited<ReturnType<typeof lockOpenSession>> | undefined;
       if (input.sessionId) session = await lockOpenSession(tx, input.sessionId);
@@ -78,6 +98,8 @@ export async function registerSale(input: {
         kind: "SALE",
         method: input.method,
         category: input.category,
+        externalSource,
+        externalReference,
       });
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 },
@@ -245,6 +267,8 @@ export async function createExpense(input: {
       const event = await tx.event.findUnique({ where: { id: input.eventId } });
       if (!event || event.status === "CANCELLED") throw new ApiError(404, "Evento não encontrado ou cancelado.");
     }
+    const category = await tx.financeCategory.findUnique({ where: { name_type: { name: input.category.trim(), type: "EXPENSE" } } });
+    if (!category?.active) throw new ApiError(400, "Selecione uma categoria de despesa ativa.");
     const expense = await tx.expense.create({
       data: {
         description: input.description.trim(),
@@ -395,9 +419,122 @@ export async function payExpense(input: {
   );
 }
 
+export async function createEmployeeCompensation(input: {
+  employeeId: string;
+  eventId?: string;
+  type: "DAILY" | "CACHE";
+  description: string;
+  amount: string;
+  dueDate: Date;
+  idempotencyKey: string;
+} & ActorInput) {
+  const amount = positiveMoney(input.amount);
+  if (!input.description.trim() || !input.idempotencyKey.trim() || input.idempotencyKey.length > 128) {
+    throw new ApiError(400, "Descrição e chave de idempotência são obrigatórias.");
+  }
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.employeeCompensation.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+    if (existing) {
+      const same = existing.employeeId === input.employeeId && existing.eventId === (input.eventId || null) &&
+        existing.type === input.type && existing.description === input.description.trim() && existing.amount.equals(amount) &&
+        existing.dueDate.getTime() === input.dueDate.getTime();
+      if (!same) throw new ApiError(409, "A chave de idempotência já foi usada em outra diária ou cachê.");
+      return existing;
+    }
+    const employee = await tx.employee.findUnique({ where: { id: input.employeeId } });
+    if (!employee || !employee.active) throw new ApiError(404, "Colaborador não encontrado ou inativo.");
+    if (input.eventId) {
+      const event = await tx.event.findUnique({ where: { id: input.eventId } });
+      if (!event || event.status === "CANCELLED") throw new ApiError(404, "Evento não encontrado ou cancelado.");
+    }
+    const compensation = await tx.employeeCompensation.create({ data: {
+      employeeId: input.employeeId,
+      eventId: input.eventId,
+      type: input.type,
+      description: input.description.trim(),
+      amount,
+      dueDate: input.dueDate,
+      idempotencyKey: input.idempotencyKey,
+      createdById: input.actorId,
+    } });
+    await tx.auditLog.create({ data: {
+      actorId: input.actorId,
+      entity: "EmployeeCompensation",
+      entityId: compensation.id,
+      action: "CREATE",
+      after: { employeeId: compensation.employeeId, eventId: compensation.eventId, type: compensation.type, amount: amount.toFixed(2), dueDate: compensation.dueDate.toISOString() },
+    } });
+    return compensation;
+  });
+}
+
+export async function payEmployeeCompensation(input: {
+  compensationId: string;
+  amount: string;
+  sourceAccountId: string;
+  method: PaymentMethod;
+  description?: string;
+  idempotencyKey: string;
+} & ActorInput) {
+  const amount = positiveMoney(input.amount);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "EmployeeCompensation" WHERE "id" = ${input.compensationId} FOR UPDATE`;
+    const compensation = await tx.employeeCompensation.findUnique({
+      where: { id: input.compensationId },
+      include: { employee: true, payments: { include: { entry: { include: { reversals: true } } } } },
+    });
+    if (!compensation) throw new ApiError(404, "Diária ou cachê não encontrado.");
+    const paymentDescription = input.description?.trim() || `Pagamento: ${compensation.description}`;
+    const repeated = compensation.payments.find((payment) => payment.entry.idempotencyKey === input.idempotencyKey);
+    const alreadyPaid = compensation.payments.reduce((sum, payment) => sum.plus(payment.entry.reversals.length ? 0 : payment.amount), new Prisma.Decimal(0));
+    if (repeated) {
+      if (!repeated.amount.equals(amount) || repeated.entry.debitAccountId !== input.sourceAccountId || repeated.entry.method !== input.method || repeated.entry.description !== paymentDescription) {
+        throw new ApiError(409, "A chave de idempotência já foi usada em outro pagamento.");
+      }
+      return { payment: repeated, status: compensation.status, remaining: compensation.amount.minus(alreadyPaid).toFixed(2) };
+    }
+    if (compensation.status === "CANCELLED") throw new ApiError(409, "Não é possível pagar uma diária ou cachê cancelado.");
+    const remaining = compensation.amount.minus(alreadyPaid);
+    if (amount.greaterThan(remaining)) throw new ApiError(409, "O pagamento excede o saldo pendente do colaborador.");
+
+    const source = await tx.financialAccount.findUnique({ where: { id: input.sourceAccountId }, include: { session: true } });
+    if (!source || !source.active) throw new ApiError(404, "Conta de pagamento não encontrada.");
+    let sessionId: string | undefined;
+    if (source.kind === "CASH") {
+      if (!source.session || source.session.status !== "OPEN") throw new ApiError(409, "A sessão do caixa já foi encerrada.");
+      sessionId = (await lockOpenSession(tx, source.session.id)).id;
+    }
+    if (input.method === "CASH" && !["CASH", "VAULT", "FUND"].includes(source.kind)) throw new ApiError(400, "Pagamento em dinheiro precisa sair de uma conta física.");
+    if (input.method !== "CASH" && source.kind === "CASH") throw new ApiError(400, "Pagamentos eletrônicos não podem sair do saldo físico do caixa.");
+    if (input.method !== "CASH" && source.kind !== "BANK" && source.kind !== "RECEIVABLE") throw new ApiError(400, "Pagamentos eletrônicos precisam sair de uma conta bancária ou de recebíveis.");
+
+    const external = await findAccount(tx, "EXTERNAL");
+    const entry = await postEntryTx(tx, {
+      debitAccountId: source.id,
+      creditAccountId: external.id,
+      amount: amount.toFixed(2),
+      description: paymentDescription,
+      idempotencyKey: input.idempotencyKey,
+      actorId: input.actorId,
+      eventId: compensation.eventId || undefined,
+      sessionId,
+      kind: "EXPENSE",
+      method: input.method,
+      category: compensation.type === "DAILY" ? "Diárias" : "Cachês",
+    });
+    const payment = await tx.employeePayment.create({ data: { compensationId: compensation.id, entryId: entry.id, amount, createdById: input.actorId } });
+    const newPaid = alreadyPaid.plus(amount);
+    const status = newPaid.greaterThanOrEqualTo(compensation.amount) ? "PAID" : "PARTIAL";
+    await tx.employeeCompensation.update({ where: { id: compensation.id }, data: { status } });
+    await tx.auditLog.create({ data: { actorId: input.actorId, entity: "EmployeePayment", entityId: payment.id, action: "PAY", after: { compensationId: compensation.id, employeeId: compensation.employeeId, amount: amount.toFixed(2), status } } });
+    return { payment, status, remaining: compensation.amount.minus(newPaid).toFixed(2) };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 });
+}
+
 export async function prepareDeposit(input: {
   amount: string;
   description?: string;
+  transportResponsible?: string;
   idempotencyKey: string;
 } & ActorInput) {
   const amount = positiveMoney(input.amount);
@@ -407,7 +544,7 @@ export async function prepareDeposit(input: {
       if (previousEntry) {
         const existing = await tx.deposit.findUnique({ where: { withdrawalId: previousEntry.id } });
         if (existing) {
-          if (!existing.amount.equals(amount) || previousEntry.description !== (input.description?.trim() || "Retirada do cofre para depósito")) {
+          if (!existing.amount.equals(amount) || previousEntry.description !== (input.description?.trim() || "Retirada do cofre para depósito") || existing.transportResponsible !== (input.transportResponsible?.trim() || null)) {
             throw new ApiError(409, "A chave de idempotência já foi usada em outro depósito.");
           }
           return existing;
@@ -430,6 +567,7 @@ export async function prepareDeposit(input: {
           amount,
           status: "IN_TRANSIT",
           withdrawalId: entry.id,
+          transportResponsible: input.transportResponsible?.trim() || null,
           createdById: input.actorId,
         },
       });
@@ -439,7 +577,7 @@ export async function prepareDeposit(input: {
           entity: "Deposit",
           entityId: deposit.id,
           action: "PREPARE",
-          after: { amount: amount.toFixed(2), status: deposit.status },
+          after: { amount: amount.toFixed(2), status: deposit.status, transportResponsible: deposit.transportResponsible },
         },
       });
       return deposit;
@@ -595,6 +733,17 @@ export async function reverseEntry(input: {
             where: { id: expense.id },
             data: { status: paid.isZero() ? "OPEN" : paid.greaterThanOrEqualTo(expense.amount) ? "PAID" : "PARTIAL" },
           });
+        }
+      }
+      const employeePayment = await tx.employeePayment.findUnique({ where: { entryId: original.id } });
+      if (employeePayment) {
+        const compensation = await tx.employeeCompensation.findUnique({
+          where: { id: employeePayment.compensationId },
+          include: { payments: { include: { entry: { include: { reversals: true } } } } },
+        });
+        if (compensation) {
+          const paid = compensation.payments.reduce((sum, item) => sum.plus(item.entry.reversals.length ? 0 : item.amount), new Prisma.Decimal(0));
+          await tx.employeeCompensation.update({ where: { id: compensation.id }, data: { status: paid.isZero() ? "OPEN" : paid.greaterThanOrEqualTo(compensation.amount) ? "PAID" : "PARTIAL" } });
         }
       }
       return reversal;

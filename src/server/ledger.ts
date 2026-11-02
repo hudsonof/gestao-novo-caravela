@@ -15,6 +15,8 @@ export type PostEntryInput = {
   kind: EntryKind;
   method?: PaymentMethod;
   category?: string;
+  externalSource?: string;
+  externalReference?: string;
   reversalOfId?: string;
 };
 
@@ -35,7 +37,9 @@ export async function postEntryTx(tx: Prisma.TransactionClient, input: PostEntry
       existing.method === (input.method ?? null) &&
       existing.eventId === (input.eventId ?? null) &&
       existing.sessionId === (input.sessionId ?? null) &&
-      existing.category === (input.category?.trim() || null);
+      existing.category === (input.category?.trim() || null) &&
+      existing.externalSource === (input.externalSource?.trim().toUpperCase() || "MANUAL") &&
+      existing.externalReference === (input.externalReference?.trim() || null);
     if (!samePayload) throw new ApiError(409, "A chave de idempotência já foi usada em outra operação.");
     return existing;
   }
@@ -71,6 +75,8 @@ export async function postEntryTx(tx: Prisma.TransactionClient, input: PostEntry
       kind: input.kind,
       method: input.method,
       category: input.category?.trim() || undefined,
+      externalSource: input.externalSource?.trim().toUpperCase() || "MANUAL",
+      externalReference: input.externalReference?.trim() || undefined,
       eventId: input.eventId,
       sessionId: input.sessionId,
       reversalOfId: input.reversalOfId,

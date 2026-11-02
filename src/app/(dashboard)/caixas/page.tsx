@@ -6,14 +6,15 @@ export const dynamic = "force-dynamic";
 const sectorNames = { TICKETS: "Bilheteria", TABLES: "Mesas", BAR: "Bar" };
 
 export default async function Caixas() {
-  const [registers, events, employees, sessions, closedSessions, vaults] = await Promise.all([
-    prisma.cashRegister.findMany({ where: { active: true }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
+  const [allRegisters, events, employees, sessions, closedSessions, vaults] = await Promise.all([
+    prisma.cashRegister.findMany({ include: { _count: { select: { sessions: true } }, sessions: { where: { status: "OPEN" }, select: { id: true } } }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
     prisma.event.findMany({ where: { status: "OPEN" }, orderBy: { startsAt: "desc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.cashSession.findMany({ where: { status: "OPEN" }, include: { register: true, account: true, event: true, employee: true }, orderBy: { openedAt: "desc" } }),
     prisma.cashSession.findMany({ where: { status: "CLOSED", account: { balance: { gt: 0 } } }, include: { register: true, account: true, event: true }, orderBy: { closedAt: "desc" }, take: 100 }),
     prisma.financialAccount.findMany({ where: { kind: "VAULT", active: true }, orderBy: { createdAt: "asc" } }),
   ]);
+  const registers = allRegisters.filter((register) => register.active);
   const eventOptions = events.map((event) => ({ value: event.id, label: event.name }));
   const registerOptions = registers.map((register) => ({ value: register.id, label: `${register.name} · ${sectorNames[register.sector]}` }));
   return <>
@@ -27,6 +28,11 @@ export default async function Caixas() {
         { name: "openingFloat", label: "Troco inicial", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
       ]} submitLabel="Abrir caixa" />
     </div>
+    <section className="section"><h2>Cadastro de caixas</h2><p className="muted">Caixas com histórico financeiro podem ser inativados, mas não renomeados nem excluídos.</p>{allRegisters.length ? <div className="session-grid">{allRegisters.map((register) => <div className="card" key={register.id}>
+      <div className="head"><div><strong>{register.name}</strong><div className="muted">{sectorNames[register.sector]} · {register._count.sessions} sessão(ões) no histórico</div></div><span className={register.active ? "tag" : "tag tag-neutral"}>{register.active ? "ATIVO" : "INATIVO"}</span></div>
+      {register._count.sessions === 0 ? <ApiForm endpoint={`/api/registers/${register.id}`} method="PATCH" title="Editar caixa" fields={[{ name: "name", label: "Nome", defaultValue: register.name }, { name: "sector", label: "Setor", type: "select", defaultValue: register.sector, options: [{ value: "TICKETS", label: "Bilheteria" }, { value: "TABLES", label: "Mesas" }, { value: "BAR", label: "Bar" }] }]} submitLabel="Salvar alterações" /> : <p className="muted">O nome e o setor ficam fixos após a primeira sessão para manter o histórico consistente.</p>}
+      {register.sessions.length ? <p className="muted">Feche as sessões abertas antes de inativar este caixa.</p> : <ApiForm endpoint={`/api/registers/${register.id}`} method="PATCH" title="Situação" fields={[{ name: "active", label: "Disponibilidade", type: "select", defaultValue: register.active ? "true" : "false", options: [{ value: "true", label: "Ativo" }, { value: "false", label: "Inativo" }] }]} submitLabel="Atualizar situação" />}
+    </div>)}</div> : <div className="card empty">Nenhum caixa cadastrado.</div>}</section>
     <section className="section"><h2>Sessões abertas</h2>{sessions.length ? <div className="session-grid">{sessions.map((session) => <div className="card" key={session.id}>
       <div className="head"><div><strong>{session.register.name}</strong><div className="muted">{sectorNames[session.register.sector]} · {session.event.name}</div></div><span className="tag">ABERTO</span></div>
       <p className="muted">Responsável: {session.employee?.name || "não informado"}</p><div className="value">{formatBRL(session.account.balance)}</div>

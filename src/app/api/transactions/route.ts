@@ -10,9 +10,11 @@ const saleSchema = z.object({
   ...base,
   method: z.enum(["CASH", "PIX", "DEBIT", "CREDIT", "BANK_TRANSFER"]),
   category: z.string().trim().max(100).optional(),
+  externalSource: z.enum(["MANUAL_IMPORT", "STONE"]).optional(),
+  externalReference: z.string().trim().min(1).max(160).optional(),
   eventId: z.string().optional().or(z.literal("")),
   sessionId: z.string().optional().or(z.literal("")),
-});
+}).refine((data) => !data.externalSource || Boolean(data.externalReference), { message: "A origem externa exige uma referência externa.", path: ["externalReference"] });
 const adjustmentSchema = z.object({
   kind: z.literal("ADJUSTMENT"),
   accountId: z.string().min(1),
