@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type FormField = {
@@ -14,6 +14,40 @@ export type FormField = {
   min?: string;
   options?: Array<{ value: string; label: string }>;
 };
+
+const brlFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+function digitsFromValue(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function decimalFromCurrencyInput(value: string) {
+  const digits = digitsFromValue(value);
+  if (!digits) return "";
+
+  const padded = digits.padStart(3, "0");
+  const whole = padded.slice(0, -2).replace(/^0+(?=\d)/, "") || "0";
+  return `${whole}.${padded.slice(-2)}`;
+}
+
+function formatCurrencyInput(value: string) {
+  if (!value) return "";
+  const decimal = decimalFromCurrencyInput(value);
+  return decimal ? brlFormatter.format(Number(decimal)) : "";
+}
+
+function centsFromDecimal(value: string) {
+  const digits = digitsFromValue(value);
+  return BigInt(digits || "0");
+}
+
+function handleCurrencyChange(event: ChangeEvent<HTMLInputElement>) {
+  const digits = digitsFromValue(event.currentTarget.value);
+  event.currentTarget.value = formatCurrencyInput(digits);
+}
 
 export function ApiForm({
   endpoint,
@@ -43,11 +77,22 @@ export function ApiForm({
     const form = new FormData(formElement);
     const payload: Record<string, string> = { ...(hidden || {}) };
     form.forEach((value, key) => { payload[key] = String(value); });
+
     for (const field of fields) {
+      if (field.type === "number") {
+        const decimalValue = decimalFromCurrencyInput(payload[field.name] || "");
+        if (decimalValue && field.min && centsFromDecimal(decimalValue) < centsFromDecimal(field.min)) {
+          setMessage(`${field.label} deve ser no mínimo ${brlFormatter.format(Number(field.min))}.`);
+          setBusy(false);
+          return;
+        }
+        payload[field.name] = decimalValue;
+      }
       if (field.type === "datetime-local" && payload[field.name]) {
         payload[field.name] = new Date(payload[field.name]).toISOString();
       }
     }
+
     idempotencyKey.current ||= crypto.randomUUID();
     try {
       const response = await fetch(endpoint, {
@@ -82,12 +127,13 @@ export function ApiForm({
           ) : (
             <input
               name={field.name}
-              type={field.type || "text"}
+              type={field.type === "number" ? "text" : field.type || "text"}
+              inputMode={field.type === "number" ? "decimal" : undefined}
+              autoComplete={field.type === "number" ? "off" : undefined}
               required={field.required !== false}
-              placeholder={field.placeholder}
-              defaultValue={field.defaultValue}
-              step={field.step}
-              min={field.min}
+              placeholder={field.type === "number" ? "R$ 0,00" : field.placeholder}
+              defaultValue={field.type === "number" ? formatCurrencyInput(field.defaultValue || "") : field.defaultValue}
+              onChange={field.type === "number" ? handleCurrencyChange : undefined}
             />
           )}
         </label>
