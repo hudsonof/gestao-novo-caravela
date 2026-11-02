@@ -1,0 +1,24 @@
+name: Monitor de disponibilidade
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    if: ${{ vars.HEALTH_MONITOR_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Consultar aplicação e PostgreSQL
+        env:
+          APP_HEALTH_URL: ${{ secrets.APP_HEALTH_URL }}
+        run: |
+          test -n "$APP_HEALTH_URL"
+          response="$(curl --fail --silent --show-error --max-time 20 "$APP_HEALTH_URL")"
+          echo "$response"
+          echo "$response" | jq --exit-status '.status == "ok" and .database == "ok"'

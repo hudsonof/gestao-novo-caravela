@@ -56,7 +56,9 @@ Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofr
 
 A API `POST /api/transactions/import` aceita vendas normalizadas com origem e referência externa únicas, para permitir uma futura ingestão idempotente. A integração automática Stone permanece pendente de credenciais e documentação/API para liquidação e conciliação. O sistema registra vendas manualmente por meio de pagamento e mantém cartão em recebíveis até transferência/baixa.
 
-O cadastro do responsável pelo transporte do depósito e a referência textual do comprovante são registrados. O upload privado de arquivos ainda exige a configuração de um serviço de armazenamento seguro.
+O cadastro do responsável pelo transporte do depósito e a referência textual do comprovante são registrados. A tela do cofre permite anexar comprovantes PDF, JPG ou PNG de até 10 MB. O servidor emite uma URL temporária de upload para um único caminho e valida novamente o conteúdo depois do envio direto ao bucket privado do Supabase Storage. O banco registra hash SHA-256 e auditoria; links de leitura duram 60 segundos. A chave `SUPABASE_STORAGE_SERVICE_ROLE_KEY` permanece somente no servidor.
+
+Para habilitar anexos, crie no Supabase Storage um bucket **privado** chamado `deposit-proofs` com limite máximo de arquivo de 10 MB, configure `SUPABASE_STORAGE_URL`, `SUPABASE_STORAGE_SERVICE_ROLE_KEY` e `DEPOSIT_PROOFS_BUCKET`, aplique as migrations e redeploy a aplicação. O acesso ao arquivo exige uma sessão ADMIN/MANAGER. Se o projeto restringir CORS, permita os domínios da aplicação. O banco continua conectado exclusivamente por Prisma usando `DATABASE_URL` e `DIRECT_URL`.
 
 ## Rotas principais
 
@@ -68,6 +70,27 @@ O cadastro do responsável pelo transporte do depósito e a referência textual 
 
 Configure `DATABASE_URL` (pooler transacional), `DIRECT_URL` (pooler de sessão ou conexão direta), `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis do ambiente da Vercel. Aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
 
-Antes de operar com valores reais, conecte um banco de homologação, revise as permissões de deploy e execute a bateria de validação funcional, concorrência e recuperação de backup. Não há conexão ativa com banco de produção neste repositório.
+O workflow `CI financeira` aplica as migrations em PostgreSQL isolado, executa testes unitários e de integração financeira, lint e build em cada PR e push para `main`.
 
-As migrations mais recentes adicionam responsáveis do evento e do transporte do depósito, referências externas de movimentações, categorias financeiras e controle de diárias/cachês. Aplique-as com `npm run db:deploy` e execute `npm run db:seed` para cadastrar as categorias iniciais antes de publicar a versão. Backups, recuperação e monitoramento de produção ainda precisam ser configurados no provedor de hospedagem.
+Antes de operar com valores reais, conecte um banco de homologação separado e revise as permissões de deploy. Não há conexão ativa com banco de produção neste repositório.
+
+As migrations mais recentes adicionam responsáveis do evento e do transporte do depósito, referências externas de movimentações, categorias financeiras, controle de diárias/cachês e metadados dos comprovantes. Aplique-as com `npm run db:deploy` e execute `npm run db:seed` para cadastrar as categorias iniciais antes de publicar a versão.
+
+### Testes financeiros
+
+`npm test` executa testes unitários de valores, autorização e validação de comprovantes. Os cenários de integração usam PostgreSQL real e só são ativados quando `RUN_FINANCE_INTEGRATION_TESTS=1`; o workflow de CI cria um banco efêmero chamado `finance_test` e executa esses cenários automaticamente. Para rodá-los localmente, configure `DATABASE_URL` e `DIRECT_URL` para um banco descartável cujo nome contenha `test`, aplique as migrations e defina `RUN_FINANCE_INTEGRATION_TESTS=1` antes de executar `npm test`. A suíte limpa as tabelas do banco antes de cada cenário; nunca use URLs de desenvolvimento compartilhado ou produção.
+
+### Backup e recuperação
+
+O workflow `Backup PostgreSQL` cria um dump custom, valida sua leitura, cifra com age e envia o arquivo para um bucket privado do Supabase Storage. Ele roda diariamente às 06:17 UTC e também pode ser acionado manualmente. Para habilitá-lo:
+
+1. Crie um bucket privado separado chamado `database-backups`.
+2. Gere uma chave age (`age-keygen`); salve a chave privada como secret `BACKUP_AGE_IDENTITY` e publique somente a chave pública como variable `BACKUP_AGE_RECIPIENT`.
+3. Configure `BACKUP_DATABASE_URL` como secret usando uma conexão PostgreSQL não transacional, `SUPABASE_STORAGE_SERVICE_ROLE_KEY` como secret e as variables `SUPABASE_STORAGE_URL`, `DEPOSIT_PROOFS_BUCKET` (se diferente do padrão) e `BACKUP_BUCKET=database-backups`.
+4. Crie a variable `DATABASE_BACKUP_ENABLED=true` para ativar o agendamento.
+
+O arquivo de backup contém o dump PostgreSQL e os comprovantes privados, com manifesto de tamanho e SHA-256, e é cifrado antes do upload. O workflow manual `Simulação de restauração em homologação` baixa e decifra o arquivo e substitui o banco configurado no environment GitHub `staging`. Configure `STAGING_DATABASE_URL` nesse environment apontando para um banco descartável separado da produção e habilite aprovação de ambiente se desejar. Informe o caminho do objeto `backups/...tar.gz.age` e a confirmação `RESTORE_STAGING`. O workflow compara o destino com a origem em `BACKUP_DATABASE_URL` e bloqueia o mesmo banco/projeto Supabase; mantenha o environment apontado somente para recursos descartáveis. A rotina valida a restauração e verifica se há contas financeiras. A configuração completa de buckets, variáveis e secrets está em [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
+### Monitoramento
+
+O workflow `Monitor de disponibilidade` consulta `/api/health` a cada 15 minutos e falha se a aplicação ou o PostgreSQL não responderem como disponíveis. Configure o secret `APP_HEALTH_URL` com a URL completa do endpoint publicado e a variable `HEALTH_MONITOR_ENABLED=true`. Falhas ficam visíveis em GitHub Actions; configure notificações do repositório para os responsáveis pela operação. Esses workflows são preparados no código, mas só passam a executar quando os secrets, variables, buckets e ambiente `staging` forem configurados na conta.
