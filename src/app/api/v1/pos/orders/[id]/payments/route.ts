@@ -19,9 +19,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return prisma.$transaction(async (tx) => {
       const paymentKey = `${user.userId}:${key}`;
       const amount = positiveMoney(input.amount);
-      const existing = await tx.posPayment.findUnique({ where: { idempotencyKey: paymentKey } });
+      const existing = await tx.posPayment.findUnique({ where: { idempotencyKey: paymentKey }, include: { order: { select: { channel: true, session: { select: { registerId: true } } } } } });
       if (existing) {
         if (existing.orderId !== id || existing.method !== input.method || !existing.amount.equals(amount)) throw new ApiError(409, "Chave de idempotência reutilizada com outros dados.");
+        if (existing.order.channel !== user.profile || existing.order.session.registerId !== user.cashRegisterId) throw new ApiError(404, "Comanda não encontrada.");
         return existing;
       }
       const order = await lockOpenOrder(tx, id, user);
