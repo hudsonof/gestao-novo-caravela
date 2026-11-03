@@ -209,7 +209,7 @@ export function PosProductManager({ products }: { products: Product[] }) {
             <button className="button button-secondary" type="button" disabled={saving} onClick={closeDialog}>Cancelar</button>
             <button className="button" type="submit" disabled={saving}>{saving ? "Salvando…" : editing ? "Salvar alterações" : "Cadastrar produto"}</button>
           </div>
-          <p className="muted">JPG, PNG ou WebP · até 5 MB.</p>
+          <p className="muted">JPG, PNG ou WebP · até 4 MB.</p>
         </form>
       </section>
     </div>}
