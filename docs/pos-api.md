@@ -33,7 +33,7 @@ O administrador configura os usuários em **Acessos ao sistema**. Cada usuário 
 | `MANAGER` | — | Rotas de gestão autorizadas a gerente |
 | `ADMIN` | — | Rotas administrativas e de gestão |
 
-Os perfis de operação devem estar vinculados a um caixa ativo do setor correspondente. O servidor valida usuário, situação, perfil e caixa em cada requisição. Gerente e administrador mantêm as funções de gestão e usam as rotas existentes protegidas por `requireManager`/`requireAdmin`.
+Os perfis de operação devem estar vinculados a um caixa ativo do setor correspondente. O servidor valida usuário, situação, perfil e caixa em cada requisição. `MANAGER` e `ADMIN` também entram pelo mesmo login; no aplicativo, esses perfis devem abrir as funções de gestão consumindo as rotas já existentes, que continuam protegidas por `requireManager`/`requireAdmin`. As rotas de operação listadas abaixo são exclusivas dos perfis `POS_*` e não aceitam gerente/administrador sem perfil de caixa.
 
 ## Rotas de operação
 
