@@ -34,14 +34,17 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handleApi(async () => {
     const actor = await requireManager();
     const { id } = await context.params;
-    return prisma.$transaction(async (tx) => {
+    const deleted = await prisma.$transaction(async (tx) => {
       const product = await tx.posProduct.findUnique({ where: { id }, include: { _count: { select: { eventPrices: true, orderItems: true } } } });
       if (!product) throw new ApiError(404, "Produto não encontrado.");
       if (product._count.eventPrices || product._count.orderItems) throw new ApiError(409, "Produto possui histórico ou preços por evento; inative-o.");
-      if (product.imagePath) await deleteStorageObject(product.imagePath);
       await tx.auditLog.create({ data: { actorId: actor.userId, entity: "PosProduct", entityId: id, action: "DELETE", before: { name: product.name, type: product.type, imagePath: product.imagePath } } });
       await tx.posProduct.delete({ where: { id } });
-      return { id };
+      return { id: product.id, imagePath: product.imagePath };
     });
+    if (deleted.imagePath) {
+      try { await deleteStorageObject(deleted.imagePath); } catch (error) { console.error("Could not remove deleted POS product image", error); }
+    }
+    return { id: deleted.id };
   });
 }
