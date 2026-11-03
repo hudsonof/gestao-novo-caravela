@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Profile = "TICKETS" | "TABLES" | "BAR" | "WAITER";
@@ -16,7 +16,7 @@ export function PosDeviceManager({ devices, registers }: { devices: Device[]; re
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  async function createDevice(event: React.FormEvent<HTMLFormElement>) {
+  async function createDevice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
