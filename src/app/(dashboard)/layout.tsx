@@ -21,6 +21,7 @@ const links = [
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") redirect("/acesso-pdv");
 
   return (
     <div className="layout">

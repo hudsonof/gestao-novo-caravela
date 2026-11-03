@@ -1,24 +1,20 @@
 import { prisma } from "@/lib/db";
 import { requireManager } from "@/lib/authorization";
 import { ApiForm } from "@/components/api-form";
-import { PosDeviceManager } from "@/components/pos-device-manager";
 import { DeleteResourceButton } from "@/components/delete-resource-button";
 import { PosProductManager } from "@/components/pos-product-manager";
 import { signedImageUrl } from "@/lib/firebase-storage";
 
 export const dynamic = "force-dynamic";
 const typeLabels = { ENTRY: "Entrada", TABLE: "Mesa", BAR: "Bar" } as const;
-const profileNames = { TICKETS: "Bilheteria", TABLES: "Mesas", BAR: "Bar", WAITER: "Garçons" } as const;
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default async function PdvManagement() {
   await requireManager();
-  const [products, events, tables, devices, registers] = await Promise.all([
+  const [products, events, tables] = await Promise.all([
     prisma.posProduct.findMany({ include: { eventPrices: { include: { event: { select: { name: true } } } }, _count: { select: { orderItems: true } } }, orderBy: [{ type: "asc" }, { name: "asc" }] }),
     prisma.event.findMany({ where: { status: { not: "CANCELLED" } }, orderBy: { startsAt: "desc" } }),
     prisma.posTable.findMany({ include: { _count: { select: { orders: true } } }, orderBy: { name: "asc" } }),
-    prisma.posDevice.findMany({ select: { id: true, name: true, profile: true, cashRegisterId: true, active: true, cashRegister: { select: { name: true } } }, orderBy: { createdAt: "desc" } }),
-    prisma.cashRegister.findMany({ where: { active: true }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
   ]);
 
   const productRows = await Promise.all(products.map(async (product) => {
@@ -41,11 +37,10 @@ export default async function PdvManagement() {
   }));
   const productOptions = products.filter((p) => p.active).map((p) => ({ value: p.id, label: `${typeLabels[p.type]} · ${p.name}` }));
   const eventOptions = events.map((e) => ({ value: e.id, label: e.name }));
-  const registerOptions = registers.map((r) => ({ value: r.id, label: `${r.name} · ${profileNames[r.sector]}` }));
 
   return <>
     <h1>PDV e catálogos</h1>
-    <p className="muted">Configure produtos, preços por evento, mesas e credenciais dos terminais de venda.</p>
+    <p className="muted">Configure produtos, preços por evento e mesas. Os usuários e perfis do PDV são gerenciados em Acessos ao sistema.</p>
     <PosProductManager products={productRows} />
     <section className="section card">
       <h2>Preços por evento</h2>
@@ -65,6 +60,5 @@ export default async function PdvManagement() {
         {tables.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Mesa</th><th>Status</th><th>Ação</th></tr></thead><tbody>{tables.map((table) => <tr key={table.id}><td>{table.name}</td><td>{table.active ? "Ativa" : "Inativa"}</td><td><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" title="Renomear mesa" fields={[{ name: "name", label: "Identificador da mesa", defaultValue: table.name }]} submitLabel="Salvar" /><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" hidden={{ active: table.active ? "false" : "true" }} title={table.active ? "Inativar mesa" : "Reativar mesa"} fields={[]} submitLabel={table.active ? "Inativar" : "Reativar"} /><DeleteResourceButton endpoint={`/api/pos/tables/${table.id}`} label="Excluir" confirmMessage={`Excluir a mesa “${table.name}”? Esta ação não pode ser desfeita.`} disabled={table._count.orders > 0} /></td></tr>)}</tbody></table></div> : <p className="empty">Nenhuma mesa cadastrada.</p>}
       </div>
     </section>
-    <PosDeviceManager devices={devices} registers={registerOptions} />
   </>;
 }

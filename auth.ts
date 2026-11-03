@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         await clearLoginFailures(key);
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return { id: user.id, name: user.name, email: user.email, role: user.role, posCashRegisterId: user.posCashRegisterId };
       },
     }),
   ],
@@ -51,18 +51,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.sub = user.id;
         token.role = user.role;
+        token.posCashRegisterId = user.posCashRegisterId ?? null;
       }
       if (token.sub) {
-        const currentUser = await prisma.user.findUnique({ where: { id: token.sub }, select: { active: true, role: true } });
-        if (!currentUser?.active) return { ...token, sub: "", role: undefined };
+        const currentUser = await prisma.user.findUnique({ where: { id: token.sub }, select: { active: true, role: true, posCashRegisterId: true } });
+        if (!currentUser?.active) return { ...token, sub: "", role: undefined, posCashRegisterId: null };
         token.role = currentUser.role;
+        token.posCashRegisterId = currentUser.posCashRegisterId;
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = token.role === "ADMIN" ? "ADMIN" : "MANAGER";
+        session.user.role = token.role ?? "MANAGER";
+        session.user.posCashRegisterId = token.posCashRegisterId ?? null;
       }
       return session;
     },

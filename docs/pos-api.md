@@ -1,85 +1,69 @@
 # API e gestão do PDV
 
-O PDV futuro deve usar o catálogo, pedidos e pagamentos do Novo Caravela. O aplicativo Android/Flutter e a integração Stone não fazem parte desta etapa.
+O PDV usa os mesmos usuários e o mesmo fluxo de autenticação do sistema de gestão. Não é mais necessário cadastrar terminais nem distribuir credenciais próprias de terminal. Esta etapa prepara e documenta a API; o aplicativo Android/Flutter e a integração Stone ficam em projeto separado.
 
-## Configuração web
+## URL base
 
-Acesse **PDV e catálogos** como gerente/administrador para cadastrar produtos:
+- Produção: `https://novo-caravela.vercel.app`
+- Desenvolvimento: URL local ou ambiente de preview correspondente.
 
-- `ENTRY`: entradas da bilheteria;
-- `TABLE`: opções de mesa;
-- `BAR`: bebidas e porções.
+Todas as chamadas devem usar HTTPS em produção.
 
-Cada produto tem um preço padrão. Um preço específico por evento substitui o preço padrão somente naquele evento. Produtos e mesas podem ser inativados para impedir novas vendas sem apagar o histórico.
+## Login e sessão
 
-Cadastre um terminal com perfil e caixa compatíveis. Os perfis `BAR` e `WAITER` devem usar caixa do setor Bar. A credencial secreta é exibida uma única vez e guardada no banco somente como hash. Para trocar uma credencial, cadastre outro terminal e revogue o anterior; revogação não pode ser revertida.
+O login usa o provider Credentials do Auth.js já utilizado pelo sistema. O aplicativo deve guardar e reenviar os cookies de sessão com um cookie jar; não usa `Authorization: Bearer` nem token de terminal.
 
-## Autenticação
+1. `GET /api/auth/csrf` para obter o `csrfToken`.
+2. `POST /api/auth/callback/credentials` com `email`, `password` e `csrfToken`; preservar os cookies `Set-Cookie` da resposta.
+3. `GET /api/auth/session` para validar o login e ler `user.id`, `user.role` e `user.posCashRegisterId`.
+4. `POST /api/auth/signout` ao sair, enviando o CSRF token conforme o fluxo Auth.js.
 
-As rotas em `/api/v1/pos` exigem:
+A sessão tem duração de oito horas. O Auth.js trata o callback Credentials como POST e fornece o endpoint CSRF para proteger as operações de autenticação. Consulte a documentação oficial antes de implementar detalhes do cliente HTTP Flutter.
 
-```http
-Authorization: Bearer <credencial-do-terminal>
-```
+## Perfis e permissões
 
-Toda operação de criação deve enviar `Idempotency-Key` única por ação para permitir repetição segura em caso de timeout. Reutilizar uma chave com outro conteúdo retorna conflito.
+O administrador configura os usuários em **Acessos ao sistema**. Cada usuário possui um único perfil:
 
-A credencial determina o perfil e o caixa; o cliente não pode enviar um perfil diferente para ampliar permissões.
+| Perfil no usuário | Setor permitido | Acesso |
+|---|---|---|
+| `POS_TICKETS` | Bilheteria | Abertura e operação de comandas de entrada |
+| `POS_TABLES` | Mesas | Venda de mesas |
+| `POS_BAR` | Bar | Venda direta de produtos do bar |
+| `POS_WAITER` | Bar | Pedidos de salão com mesa e garçom |
+| `MANAGER` | — | Rotas de gestão autorizadas a gerente |
+| `ADMIN` | — | Rotas administrativas e de gestão |
 
-## Rotas do terminal
+Os perfis de operação devem estar vinculados a um caixa ativo do setor correspondente. O servidor valida usuário, situação, perfil e caixa em cada requisição. `MANAGER` e `ADMIN` também entram pelo mesmo login; no aplicativo, esses perfis devem abrir as funções de gestão consumindo as rotas já existentes, que continuam protegidas por `requireManager`/`requireAdmin`. As rotas de operação listadas abaixo são exclusivas dos perfis `POS_*` e não aceitam gerente/administrador sem perfil de caixa.
+
+## Rotas de operação
 
 | Método e rota | Finalidade |
 |---|---|
-| `GET /api/v1/pos/bootstrap?eventId=...` | Retorna evento, sessão aberta, produtos e preço efetivo. Para garçons, retorna mesas e colaboradores ativos. |
-| `GET /api/v1/pos/orders?eventId=...` | Consulta comandas abertas do terminal. |
-| `POST /api/v1/pos/orders` | Abre comanda/pedido. Corpo: `eventId`, `commandCode`, opcionalmente `tableId`, `waiterEmployeeId`, `operatorEmployeeId`. Garçons exige mesa e garçom. |
-| `GET /api/v1/pos/orders/{id}` | Consulta uma comanda pertencente ao terminal. |
-| `POST /api/v1/pos/orders/{id}/items` | Inclui produto. Corpo: `productId`, `quantity`. Preço e total são calculados no servidor. |
-| `PATCH /api/v1/pos/orders/{id}/items/{itemId}` | Altera a quantidade enquanto não houver pagamentos. |
-| `DELETE /api/v1/pos/orders/{id}/items/{itemId}` | Remove item enquanto não houver pagamentos. |
-| `POST /api/v1/pos/orders/{id}/payments` | Registra pagamento. Corpo: `amount`, `method` (`CASH`, `PIX`, `BANK_TRANSFER`, `DEBIT`, `CREDIT`). Pagamento parcial é permitido. |
-| `POST /api/v1/pos/orders/{id}/cancel` | Cancela comanda ainda não paga. Corpo: `reason`. |
+| `GET /api/v1/pos/events` | Lista eventos abertos com sessão de caixa aberta no caixa associado ao usuário. |
+| `GET /api/v1/pos/bootstrap?eventId=...` | Retorna usuário/perfil, caixa, evento, sessão, produtos com preço efetivo e imagens. Para Garçom, também retorna mesas e colaboradores ativos. |
+| `GET /api/v1/pos/orders?eventId=...` | Lista comandas abertas do mesmo caixa e perfil. |
+| `POST /api/v1/pos/orders` | Abre comanda/pedido. Corpo: `eventId`, `commandCode`, opcionalmente `tableId`, `waiterEmployeeId`, `operatorEmployeeId`. Garçom exige mesa e garçom. |
+| `GET /api/v1/pos/orders/{id}` | Consulta comanda do caixa e perfil autenticados. |
+| `POST /api/v1/pos/orders/{id}/items` | Inclui produto e quantidade. Preço é calculado no servidor. |
+| `PATCH /api/v1/pos/orders/{id}/items/{itemId}` | Atualiza quantidade antes de qualquer pagamento. |
+| `DELETE /api/v1/pos/orders/{id}/items/{itemId}` | Remove item antes de qualquer pagamento. |
+| `POST /api/v1/pos/orders/{id}/payments` | Registra pagamento, inclusive parcial. |
+| `POST /api/v1/pos/orders/{id}/cancel` | Cancela pedido aberto sem pagamento; exige `reason`. |
 
-### Exemplo
+Todas as operações de escrita devem enviar `Idempotency-Key` única por ação para permitir repetição segura em caso de timeout. O aplicativo não pode escolher o perfil nem o caixa no payload: ambos vêm do usuário autenticado.
 
-```http
-POST /api/v1/pos/orders
-Authorization: Bearer <credencial>
-Idempotency-Key: <uuid>
-Content-Type: application/json
+## Integração do aplicativo
 
-{
-  "eventId": "<evento>",
-  "commandCode": "C-123",
-  "tableId": "<mesa>",
-  "waiterEmployeeId": "<colaborador>"
-}
-```
+1. Configurar `API_BASE_URL` como `https://novo-caravela.vercel.app` em produção.
+2. Implementar cliente HTTP com cookie jar persistente e HTTPS; não armazenar senha depois do login.
+3. Após autenticar, ler `user.role` e mostrar somente o fluxo correspondente.
+4. Consultar eventos e bootstrap; montar catálogo de acordo com o perfil e carregar `imageUrl`.
+5. Gerar chave idempotente por operação e enviar no header.
+6. Tratar `401` como sessão expirada, `403` como perfil/caixa sem permissão e `409` como evento, caixa ou comanda em estado incompatível.
+7. No pagamento Stone, registrar no backend apenas depois do resultado confirmado pelo fluxo Stone; preservar a chave idempotente para evitar duplicidade.
 
-Venda direta no bar usa terminal `BAR`; venda de salão usa terminal `WAITER`. O servidor registra o canal a partir do terminal. O tipo de produto permitido também vem do perfil.
+## Histórico e migração
 
-## Gestão financeira
+Pedidos criados por terminais antigos preservam o vínculo histórico ao terminal. Novos pedidos registram o usuário autenticado; o campo de terminal fica vazio para novos registros. A migration adiciona os perfis de usuário, a associação de caixa e o operador do pedido sem remover os dados existentes.
 
-Ao pagar, o pedido cria um lançamento `SALE` por meio de `postEntryTx`, com referência externa `POS`, sessão, evento e meio de pagamento. Dinheiro credita a conta da sessão; Pix/transferência credita a primeira conta bancária ativa; débito/crédito credita a primeira conta de recebíveis ativa. Configure estas contas antes de operar.
-
-Pedidos e pagamentos aparecem em **Pedidos do PDV**. Gerentes podem cancelar pedidos sem pagamento ou estornar pedidos pagos. Estorno reverte os lançamentos vinculados e exige justificativa. Se a sessão em dinheiro já estiver fechada, o sistema bloqueia o estorno por essa sessão e exige ajuste no caixa atual.
-
-## Restrições
-
-- A sessão de caixa e o evento devem estar abertos para abrir pedidos e receber pagamentos.
-- O total é recalculado pelo servidor com o preço efetivo do evento; o preço enviado pelo cliente é ignorado.
-- Após o primeiro pagamento, itens ficam imutáveis; o saldo restante pode ser pago em outra operação.
-- Produto usado, preço por evento associado ou mesa com pedido histórico não é apagado; inative em vez disso.
-- A autenticação nesta versão usa credencial longa e revogável por terminal. TLS e armazenamento seguro no dispositivo são requisitos para o futuro aplicativo.
-
-
-## Imagens do catálogo
-
-A tela web aceita imagens JPG, PNG e WebP de até 4 MB. O arquivo é enviado ao bucket `pdv-caravela.firebasestorage.app` em uma rota autenticada do servidor; a credencial do Firebase não é enviada ao navegador. O terminal recebe uma URL assinada de leitura válida por uma hora no bootstrap, junto ao produto.
-
-Configure no ambiente de deploy:
-
-- `FIREBASE_STORAGE_BUCKET=pdv-caravela.firebasestorage.app`
-- `FIREBASE_SERVICE_ACCOUNT_JSON`: JSON da conta de serviço do projeto Firebase/Google Cloud, guardado como segredo. Conceda permissão para criar, ler e excluir objetos no bucket.
-
-Configure a mesma variável localmente para testar upload. Não commite a chave de serviço nem a adicione a variáveis `NEXT_PUBLIC_*`. A migration adiciona `PosProduct.imagePath`; execute `npm run db:deploy` depois de integrar a alteração.
+Após integrar, aplique a migration com `npm run db:deploy`. Revise/atribua os perfis e caixas aos usuários em **Acessos ao sistema** antes de liberar o login dos PDVs.
