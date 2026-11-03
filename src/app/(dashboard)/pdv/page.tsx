@@ -3,10 +3,13 @@ import { requireManager } from "@/lib/authorization";
 import { ApiForm } from "@/components/api-form";
 import { PosDeviceManager } from "@/components/pos-device-manager";
 import { DeleteResourceButton } from "@/components/delete-resource-button";
+import { PosProductManager } from "@/components/pos-product-manager";
+import { signedImageUrl } from "@/lib/firebase-storage";
 
 export const dynamic = "force-dynamic";
 const typeLabels = { ENTRY: "Entrada", TABLE: "Mesa", BAR: "Bar" } as const;
 const profileNames = { TICKETS: "Bilheteria", TABLES: "Mesas", BAR: "Bar", WAITER: "Garçons" } as const;
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default async function PdvManagement() {
   await requireManager();
@@ -17,6 +20,25 @@ export default async function PdvManagement() {
     prisma.posDevice.findMany({ select: { id: true, name: true, profile: true, cashRegisterId: true, active: true, cashRegister: { select: { name: true } } }, orderBy: { createdAt: "desc" } }),
     prisma.cashRegister.findMany({ where: { active: true }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
   ]);
+
+  const productRows = await Promise.all(products.map(async (product) => {
+    let imageUrl: string | null = null;
+    if (product.imagePath) {
+      try { imageUrl = signedImageUrl(product.imagePath); } catch { imageUrl = null; }
+    }
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      type: product.type,
+      basePrice: product.basePrice.toFixed(2),
+      active: product.active,
+      imagePath: product.imagePath,
+      imageUrl,
+      hasHistory: product._count.orderItems > 0,
+      hasEventPrices: product.eventPrices.length > 0,
+    };
+  }));
   const productOptions = products.filter((p) => p.active).map((p) => ({ value: p.id, label: `${typeLabels[p.type]} · ${p.name}` }));
   const eventOptions = events.map((e) => ({ value: e.id, label: e.name }));
   const registerOptions = registers.map((r) => ({ value: r.id, label: `${r.name} · ${profileNames[r.sector]}` }));
@@ -24,43 +46,23 @@ export default async function PdvManagement() {
   return <>
     <h1>PDV e catálogos</h1>
     <p className="muted">Configure produtos, preços por evento, mesas e credenciais dos terminais de venda.</p>
+    <PosProductManager products={productRows} />
     <section className="section card">
-      <h2>Catálogo</h2>
+      <h2>Preços por evento</h2>
       <div className="form-grid">
-        <ApiForm endpoint="/api/pos/products" title="Novo produto ou tipo de entrada/mesa" fields={[
-          { name: "name", label: "Nome" },
-          { name: "type", label: "Categoria", type: "select", options: [{ value: "ENTRY", label: "Entrada" }, { value: "TABLE", label: "Mesa" }, { value: "BAR", label: "Produto do bar" }] },
-          { name: "description", label: "Descrição", required: false },
-          { name: "basePrice", label: "Preço padrão", type: "number", min: "0.01", step: "0.01" },
-        ]} submitLabel="Cadastrar produto" />
-        <ApiForm endpoint="/api/pos/prices" title="Definir preço para evento" fields={[
+        <ApiForm endpoint="/api/pos/prices" title="Definir ou atualizar preço para evento" fields={[
           { name: "productId", label: "Produto", type: "select", options: productOptions },
           { name: "eventId", label: "Evento", type: "select", options: eventOptions },
           { name: "price", label: "Preço neste evento", type: "number", min: "0.01", step: "0.01" },
         ]} submitLabel="Salvar preço do evento" />
+        {products.some((product) => product.eventPrices.length > 0) ? <div className="table-scroll"><table className="table"><thead><tr><th>Produto</th><th>Evento</th><th>Preço</th></tr></thead><tbody>{products.flatMap((product) => product.eventPrices.map((price) => <tr key={price.id}><td>{product.name}</td><td>{price.event.name}</td><td>{brl.format(Number(price.price))}</td></tr>))}</tbody></table></div> : <p className="empty">Nenhum preço específico por evento.</p>}
       </div>
-      {products.length ? <div className="table-scroll section"><table className="table"><thead><tr><th>Produto</th><th>Tipo</th><th>Preço padrão</th><th>Preços por evento</th><th>Status / edição</th></tr></thead><tbody>{products.map((product) => <tr key={product.id}>
-        <td>{product.name}<div className="muted">{product.description || ""}</div></td>
-        <td>{typeLabels[product.type]}</td>
-        <td>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(product.basePrice))}</td>
-        <td>{product.eventPrices.length ? product.eventPrices.map((price) => <div key={price.id}>{price.event.name}: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(price.price))}</div>) : "—"}</td>
-        <td><span className={product.active ? "tag" : "tag tag-neutral"}>{product.active ? "ATIVO" : "INATIVO"}</span>
-          <ApiForm endpoint={`/api/pos/products/${product.id}`} method="PATCH" title="Editar produto" fields={[
-            { name: "name", label: "Nome", defaultValue: product.name },
-            { name: "description", label: "Descrição", required: false, defaultValue: product.description || "" },
-            { name: "type", label: "Tipo", type: "select", defaultValue: product.type, options: [{ value: "ENTRY", label: "Entrada" }, { value: "TABLE", label: "Mesa" }, { value: "BAR", label: "Bar" }] },
-            { name: "basePrice", label: "Preço padrão", type: "number", min: "0.01", step: "0.01", defaultValue: product.basePrice.toFixed(2) },
-          ]} submitLabel="Salvar" />
-          <ApiForm endpoint={`/api/pos/products/${product.id}`} method="PATCH" hidden={{ active: product.active ? "false" : "true" }} title={product.active ? "Inativar produto" : "Reativar produto"} fields={[]} submitLabel={product.active ? "Inativar" : "Reativar"} />
-          <DeleteResourceButton endpoint={`/api/pos/products/${product.id}`} label="Excluir" confirmMessage={`Excluir o produto “${product.name}”?`} disabled={product._count.orderItems > 0 || product.eventPrices.length > 0} />
-        </td>
-      </tr>)}</tbody></table></div> : <p className="empty">Nenhum produto cadastrado.</p>}
     </section>
     <section className="section card">
       <h2>Mesas</h2>
       <div className="form-grid">
         <ApiForm endpoint="/api/pos/tables" title="Cadastrar mesa" fields={[{ name: "name", label: "Identificador/nome da mesa" }]} submitLabel="Cadastrar mesa" />
-        {tables.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Mesa</th><th>Status</th><th>Ação</th></tr></thead><tbody>{tables.map((table) => <tr key={table.id}><td>{table.name}</td><td>{table.active ? "Ativa" : "Inativa"}</td><td><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" title="Renomear mesa" fields={[{ name: "name", label: "Identificador da mesa", defaultValue: table.name }]} submitLabel="Salvar" /><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" hidden={{ active: table.active ? "false" : "true" }} title={table.active ? "Inativar mesa" : "Reativar mesa"} fields={[]} submitLabel={table.active ? "Inativar" : "Reativar"} /><DeleteResourceButton endpoint={`/api/pos/tables/${table.id}`} label="Excluir" confirmMessage={`Excluir a mesa “${table.name}”?`} disabled={table._count.orders > 0} /></td></tr>)}</tbody></table></div> : <p className="empty">Nenhuma mesa cadastrada.</p>}
+        {tables.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Mesa</th><th>Status</th><th>Ação</th></tr></thead><tbody>{tables.map((table) => <tr key={table.id}><td>{table.name}</td><td>{table.active ? "Ativa" : "Inativa"}</td><td><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" title="Renomear mesa" fields={[{ name: "name", label: "Identificador da mesa", defaultValue: table.name }]} submitLabel="Salvar" /><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" hidden={{ active: table.active ? "false" : "true" }} title={table.active ? "Inativar mesa" : "Reativar mesa"} fields={[]} submitLabel={table.active ? "Inativar" : "Reativar"} /><DeleteResourceButton endpoint={`/api/pos/tables/${table.id}`} label="Excluir" confirmMessage={`Excluir a mesa “${table.name}”? Esta ação não pode ser desfeita.`} disabled={table._count.orders > 0} /></td></tr>)}</tbody></table></div> : <p className="empty">Nenhuma mesa cadastrada.</p>}
       </div>
     </section>
     <PosDeviceManager devices={devices} registers={registerOptions} />

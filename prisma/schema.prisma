@@ -378,6 +378,7 @@ model PosProduct {
   id          String         @id @default(uuid())
   name        String
   description String?
+  imagePath   String?
   type        PosProductType
   basePrice   Decimal        @db.Decimal(18, 2)
   active      Boolean        @default(true)

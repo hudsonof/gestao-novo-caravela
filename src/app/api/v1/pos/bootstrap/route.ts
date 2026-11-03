@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { handleApi, ApiError } from "@/lib/http";
 import { requirePosDevice } from "@/lib/pos-auth";
 import { productTypeForChannel } from "@/server/pos";
+import { signedImageUrl } from "@/lib/firebase-storage";
 
 export async function GET(request: Request) {
   return handleApi(async () => {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
       device: { id: device.id, name: device.name, profile: device.profile, register: device.cashRegister.name },
       event: { id: event.id, name: event.name },
       session,
-      products: products.map(({ eventPrices, ...product }) => ({ ...product, price: eventPrices[0]?.price || product.basePrice })),
+      products: await Promise.all(products.map(async ({ eventPrices, ...product }) => ({ ...product, price: eventPrices[0]?.price || product.basePrice, imageUrl: product.imagePath ? signedImageUrl(product.imagePath) : null }))),
       tables,
       waiters: employees,
     };

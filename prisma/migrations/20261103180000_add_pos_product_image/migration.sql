@@ -1,0 +1,1 @@
+ALTER TABLE "PosProduct" ADD COLUMN "imagePath" TEXT;
