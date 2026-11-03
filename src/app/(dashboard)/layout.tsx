@@ -14,6 +14,8 @@ const links = [
   ["/auditoria", "Auditoria"],
   ["/equipe", "Colaboradores"],
   ["/categorias", "Categorias"],
+  ["/pdv", "PDV e catálogos"],
+  ["/pdv/vendas", "Pedidos do PDV"],
 ];
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {

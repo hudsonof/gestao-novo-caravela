@@ -78,6 +78,25 @@ enum EmployeeCompensationType {
   CACHE
 }
 
+enum PosChannel {
+  TICKETS
+  TABLES
+  BAR
+  WAITER
+}
+
+enum PosOrderStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+enum PosProductType {
+  ENTRY
+  TABLE
+  BAR
+}
+
 enum FinanceCategoryType {
   INCOME
   EXPENSE
@@ -100,6 +119,7 @@ model User {
   compensationsCreated EmployeeCompensation[] @relation("EmployeeCompensationCreator")
   employeePaymentsCreated EmployeePayment[] @relation("EmployeePaymentCreator")
   auditLogs       AuditLog[]    @relation("AuditActor")
+  posDevicesCreated PosDevice[]
 }
 
 model LoginAttempt {
@@ -128,6 +148,8 @@ model Employee {
   active    Boolean       @default(true)
   sessions  CashSession[]
   compensations EmployeeCompensation[]
+  waiterOrders PosOrder[] @relation("PosWaiter")
+  operatorOrders PosOrder[] @relation("PosOperator")
 }
 
 model Event {
@@ -146,6 +168,8 @@ model Event {
 
   @@index([startsAt])
   @@index([status, startsAt])
+  posProductPrices PosProductPrice[]
+  posOrders PosOrder[]
 }
 
 model CashRegister {
@@ -154,6 +178,7 @@ model CashRegister {
   sector    Sector
   active    Boolean       @default(true)
   sessions  CashSession[]
+  posDevices PosDevice[]
 }
 
 model FinancialAccount {
@@ -189,6 +214,7 @@ model CashSession {
   openedBy       User          @relation("SessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
   entries        LedgerEntry[]
   closing        CashClosing?
+  posOrders      PosOrder[]
 
   @@index([registerId, status])
   @@index([eventId, status])
@@ -229,6 +255,7 @@ model LedgerEntry {
   @@index([creditAccountId, createdAt])
   @@index([kind, createdAt])
   @@unique([externalSource, externalReference])
+  posPayment PosPayment?
 }
 
 model CashClosing {
@@ -344,4 +371,126 @@ model AuditLog {
   actor     User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([entity, entityId, createdAt])
+}
+
+
+model PosProduct {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  type        PosProductType
+  basePrice   Decimal        @db.Decimal(18, 2)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  eventPrices PosProductPrice[]
+  orderItems  PosOrderItem[]
+
+  @@unique([type, name])
+  @@index([type, active])
+}
+
+model PosProductPrice {
+  id        String     @id @default(uuid())
+  productId String
+  eventId   String
+  price     Decimal    @db.Decimal(18, 2)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  product   PosProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, eventId])
+  @@index([eventId])
+}
+
+
+model PosTable {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  orders    PosOrder[]
+}
+
+model PosDevice {
+  id             String       @id @default(uuid())
+  name           String
+  profile        PosChannel
+  cashRegisterId String
+  tokenHash      String       @unique
+  active         Boolean      @default(true)
+  createdById    String
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  orders         PosOrder[]
+
+  @@index([profile, active])
+  @@index([cashRegisterId, active])
+}
+
+model PosOrder {
+  id                String         @id @default(uuid())
+  eventId           String
+  sessionId         String
+  deviceId          String
+  channel           PosChannel
+  commandCode       String
+  tableId           String?
+  tableNameSnapshot String?
+  waiterEmployeeId  String?
+  operatorEmployeeId String?
+  status            PosOrderStatus @default(OPEN)
+  total             Decimal        @default(0) @db.Decimal(18, 2)
+  idempotencyKey    String         @unique
+  openedAt          DateTime       @default(now())
+  paidAt            DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  event             Event          @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  session           CashSession    @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  device            PosDevice      @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  table             PosTable?      @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  waiter            Employee?      @relation("PosWaiter", fields: [waiterEmployeeId], references: [id], onDelete: Restrict)
+  operator          Employee?      @relation("PosOperator", fields: [operatorEmployeeId], references: [id], onDelete: Restrict)
+  items             PosOrderItem[]
+  payments          PosPayment[]
+
+  @@index([eventId, status, openedAt])
+  @@index([sessionId, status])
+  @@index([channel, status])
+  @@index([commandCode, eventId])
+}
+
+model PosOrderItem {
+  id             String     @id @default(uuid())
+  orderId        String
+  productId      String
+  productName    String
+  quantity       Int
+  unitPrice      Decimal    @db.Decimal(18, 2)
+  lineTotal      Decimal    @db.Decimal(18, 2)
+  idempotencyKey String     @unique
+  createdAt      DateTime   @default(now())
+  order          PosOrder   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  product        PosProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model PosPayment {
+  id             String        @id @default(uuid())
+  orderId        String
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(18, 2)
+  ledgerEntryId  String        @unique
+  idempotencyKey String        @unique
+  createdAt      DateTime      @default(now())
+  order          PosOrder      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  ledgerEntry    LedgerEntry   @relation(fields: [ledgerEntryId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
 }
