@@ -10,15 +10,15 @@ const methodNames = { CASH: "Dinheiro", PIX: "Pix", BANK_TRANSFER: "Transferênc
 export default async function PdvSales() {
   await requireManager();
   const orders = await prisma.posOrder.findMany({
-    include: { event: { select: { name: true } }, device: { select: { name: true } }, session: { include: { register: { select: { name: true } } } }, table: { select: { name: true } }, waiter: { select: { name: true } }, items: true, payments: true },
+    include: { event: { select: { name: true } }, device: { select: { name: true } }, operatorUser: { select: { name: true } }, session: { include: { register: { select: { name: true } } } }, table: { select: { name: true } }, waiter: { select: { name: true } }, items: true, payments: true },
     orderBy: { openedAt: "desc" },
     take: 500,
   });
   return <>
     <h1>Pedidos do PDV</h1>
-    <p className="muted">Pedidos recentes por evento, canal, terminal, caixa e garçom. Reembolsos geram lançamentos de reversão no razão.</p>
+    <p className="muted">Pedidos recentes por evento, canal, operador, caixa e garçom. Reembolsos geram lançamentos de reversão no razão.</p>
     <section className="section card">{orders.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Data / comanda</th><th>Canal</th><th>Evento / caixa</th><th>Garçom / mesa</th><th>Itens</th><th>Pagamentos</th><th>Total / status</th><th>Ação</th></tr></thead><tbody>{orders.map((order) => <tr key={order.id}>
-      <td>{order.openedAt.toLocaleString("pt-BR")}<div className="muted">{order.commandCode} · {order.device.name}</div></td>
+      <td>{order.openedAt.toLocaleString("pt-BR")}<div className="muted">{order.commandCode} · {order.operatorUser?.name || order.device?.name || "—"}</div></td>
       <td>{channelNames[order.channel]}</td><td>{order.event.name}<div className="muted">{order.session.register.name}</div></td>
       <td>{order.waiter?.name || "—"}<div className="muted">{order.tableNameSnapshot || order.table?.name || "—"}</div></td>
       <td>{order.items.map((item) => <div key={item.id}>{item.quantity} × {item.productName} · {formatBRL(item.lineTotal)}</div>)}</td>
