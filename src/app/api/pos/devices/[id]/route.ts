@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 
-const schema = z.object({ active: z.boolean() });
+const schema = z.object({ active: z.literal(false) });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   return handleApi(async () => {
