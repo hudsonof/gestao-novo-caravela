@@ -42,7 +42,7 @@ export async function postPosPayment(input: {
   eventId: string;
   commandCode: string;
 }) {
-  if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 100) throw new ApiError(400, "Informe uma chave de idempotência válida.");
+  if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 120) throw new ApiError(400, "Informe uma chave de idempotência válida.");
   const amount = positiveMoney(input.amountText);
   const prior = await input.tx.posPayment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
   if (prior) {
