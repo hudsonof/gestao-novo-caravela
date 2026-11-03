@@ -71,3 +71,15 @@ Pedidos e pagamentos aparecem em **Pedidos do PDV**. Gerentes podem cancelar ped
 - Após o primeiro pagamento, itens ficam imutáveis; o saldo restante pode ser pago em outra operação.
 - Produto usado, preço por evento associado ou mesa com pedido histórico não é apagado; inative em vez disso.
 - A autenticação nesta versão usa credencial longa e revogável por terminal. TLS e armazenamento seguro no dispositivo são requisitos para o futuro aplicativo.
+
+
+## Imagens do catálogo
+
+A tela web aceita imagens JPG, PNG e WebP de até 4 MB. O arquivo é enviado ao bucket `pdv-caravela.firebasestorage.app` em uma rota autenticada do servidor; a credencial do Firebase não é enviada ao navegador. O terminal recebe uma URL assinada de leitura válida por uma hora no bootstrap, junto ao produto.
+
+Configure no ambiente de deploy:
+
+- `FIREBASE_STORAGE_BUCKET=pdv-caravela.firebasestorage.app`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: JSON da conta de serviço do projeto Firebase/Google Cloud, guardado como segredo. Conceda permissão para criar, ler e excluir objetos no bucket.
+
+Configure a mesma variável localmente para testar upload. Não commite a chave de serviço nem a adicione a variáveis `NEXT_PUBLIC_*`. A migration adiciona `PosProduct.imagePath`; execute `npm run db:deploy` depois de integrar a alteração.
