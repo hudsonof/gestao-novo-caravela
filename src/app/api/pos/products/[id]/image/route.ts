@@ -4,7 +4,7 @@ import { ApiError, handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 import { deleteStorageObject, signedImageUrl, uploadProductImage } from "@/lib/firebase-storage";
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const imageTypes: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -19,7 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const file = form.get("file");
     if (!(file instanceof File)) throw new ApiError(400, "Selecione uma imagem.");
     if (!imageTypes[file.type]) throw new ApiError(400, "Use uma imagem JPG, PNG ou WebP.");
-    if (!file.size || file.size > MAX_IMAGE_SIZE) throw new ApiError(400, "A imagem deve ter até 5 MB.");
+    if (!file.size || file.size > MAX_IMAGE_SIZE) throw new ApiError(400, "A imagem deve ter até 4 MB.");
 
     const product = await prisma.posProduct.findUnique({ where: { id }, select: { id: true, imagePath: true } });
     if (!product) throw new ApiError(404, "Produto não encontrado.");
