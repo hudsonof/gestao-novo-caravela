@@ -13,7 +13,10 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
   const parsedPage = Number(params.page);
   const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-  const totalUsers = await prisma.user.count();
+  const [totalUsers, cashRegisters] = await Promise.all([
+    prisma.user.count(),
+    prisma.cashRegister.findMany({ where: { active: true }, select: { id: true, name: true, sector: true }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
+  ]);
   const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
   if (requestedPage > totalPages) redirect(currentPage === 1 ? "/usuarios" : `/usuarios?page=${currentPage}`);
@@ -27,6 +30,8 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
       email: true,
       role: true,
       active: true,
+      posCashRegisterId: true,
+      posCashRegister: { select: { name: true } },
       _count: {
         select: {
           openedSessions: true,
@@ -46,12 +51,13 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
 
   return <>
     <h1>Acessos ao sistema</h1>
-    <p className="muted">Somente administradores e gerentes têm credenciais; colaboradores de caixa não precisam acessar o sistema.</p>
+    <p className="muted">Cadastre contas de administração, gerência e operação do PDV usando o mesmo login para o sistema e os aplicativos.</p>
     <UserManager
       users={users.map(({ _count, ...user }) => ({
         ...user,
         hasHistory: Object.values(_count).some((count) => count > 0),
       }))}
+      registers={cashRegisters.map((register) => ({ value: register.id, label: `${register.name} · ${register.sector === "TICKETS" ? "Bilheteria" : register.sector === "TABLES" ? "Mesas" : "Bar"}` }))} 
       currentUserId={actor.userId}
       currentPage={currentPage}
       totalPages={totalPages}
