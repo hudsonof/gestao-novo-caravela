@@ -116,7 +116,9 @@ export function PosProductManager({ products }: { products: Product[] }) {
       } catch (error) {
         imageWarning = error instanceof Error ? error.message : "Não foi possível atualizar a imagem.";
       }
-      closeDialog();
+      setCreating(false);
+      setEditing(null);
+      setFormMessage("");
       setMessage(imageWarning ? `Produto salvo. ${imageWarning} Você pode tentar novamente editando o produto.` : editing ? "Produto atualizado." : "Produto cadastrado.");
       router.refresh();
     } catch (error) {
