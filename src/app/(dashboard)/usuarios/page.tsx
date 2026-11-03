@@ -43,6 +43,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
           compensationsCreated: true,
           employeePaymentsCreated: true,
           auditLogs: true,
+          posOrders: true,
         },
       },
     },
