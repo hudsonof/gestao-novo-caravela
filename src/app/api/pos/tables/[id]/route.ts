@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 
-const schema = z.object({ name: z.string().trim().min(1).max(80).optional(), active: z.boolean().optional() }).refine((v) => Object.keys(v).length > 0, "Informe um campo.");
+const schema = z.object({ name: z.string().trim().min(1).max(80).optional(), active: z.preprocess((value) => value === true || value === "true" ? true : value === false || value === "false" ? false : value, z.boolean()).optional() }).refine((v) => Object.keys(v).length > 0, "Informe um campo.");
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   return handleApi(async () => {
