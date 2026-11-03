@@ -28,14 +28,14 @@ const historyRelations = {
   posOrders: true,
 } as const;
 
-async function validatePosRegister(role: z.infer<typeof userRoleSchema>, registerId: string | null) {
+async function validatePosRegister(tx: Prisma.TransactionClient, role: z.infer<typeof userRoleSchema>, registerId: string | null) {
   const expectedSector = posSectorForRole(role);
   if (!expectedSector) {
     if (registerId) throw new ApiError(400, "Associe um caixa somente a usuários com perfil de operação do PDV.");
     return null;
   }
   if (!registerId) throw new ApiError(400, "Selecione o caixa vinculado ao perfil do PDV.");
-  const register = await prisma.cashRegister.findUnique({ where: { id: registerId }, select: { id: true, sector: true, active: true } });
+  const register = await tx.cashRegister.findUnique({ where: { id: registerId }, select: { id: true, sector: true, active: true } });
   if (!register || !register.active) throw new ApiError(400, "O caixa selecionado não existe ou está inativo.");
   if (register.sector !== expectedSector) throw new ApiError(400, "O perfil do usuário não corresponde ao setor do caixa.");
   return register.id;
@@ -63,7 +63,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const nextRegisterId = input.posCashRegisterId !== undefined
         ? input.posCashRegisterId?.trim() || null
         : posSectorForRole(nextRole) ? target.posCashRegisterId : null;
-      const registerId = await validatePosRegister(nextRole, nextRegisterId);
+      const registerId = await validatePosRegister(tx, nextRole, nextRegisterId);
       const data = {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.email !== undefined ? { email: input.email.toLowerCase() } : {}),
