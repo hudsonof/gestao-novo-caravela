@@ -30,8 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const paid = await tx.posPayment.aggregate({ where: { orderId: id }, _sum: { amount: true } });
       const paidAmount = paid._sum.amount || new Prisma.Decimal(0);
       const remaining = order.total.minus(paidAmount);
-      const amount = new Prisma.Decimal(input.amount.replace(",", "."));
-      if (amount.lessThanOrEqualTo(0) || amount.greaterThan(remaining)) throw new ApiError(400, "O pagamento deve ser positivo e não pode exceder o saldo da comanda.");
+      if (amount.greaterThan(remaining)) throw new ApiError(400, "O pagamento não pode exceder o saldo da comanda.");
       return postPosPayment({ tx, device, order, amountText: input.amount, method: input.method, idempotencyKey: paymentKey, sessionId: session.id, accountId: session.accountId, eventId: order.eventId, commandCode: order.commandCode });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 });
   }, 201);
