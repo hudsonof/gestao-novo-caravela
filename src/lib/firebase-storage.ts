@@ -62,10 +62,12 @@ export async function uploadProductImage(path: string, bytes: Uint8Array, conten
   const endpoint = new URL(`https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucketName)}/o`);
   endpoint.searchParams.set("uploadType", "media");
   endpoint.searchParams.set("name", path);
+  const body = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(body).set(bytes);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": contentType, "cache-control": "public, max-age=3600" },
-    body: bytes,
+    body,
     cache: "no-store",
   });
   if (!response.ok) await storageError(response, "Não foi possível enviar a imagem ao Firebase Storage.");
