@@ -4,7 +4,7 @@ import { ApiError, handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 import { positiveMoney } from "@/lib/money";
 
-const schema = z.object({ name: z.string().trim().min(2).max(120).optional(), description: z.string().trim().max(240).nullable().optional(), type: z.enum(["ENTRY", "TABLE", "BAR"]).optional(), basePrice: z.string().optional(), active: z.boolean().optional() }).refine((v) => Object.keys(v).length > 0, "Informe ao menos um campo.");
+const schema = z.object({ name: z.string().trim().min(2).max(120).optional(), description: z.string().trim().max(240).nullable().optional(), type: z.enum(["ENTRY", "TABLE", "BAR"]).optional(), basePrice: z.string().optional(), active: z.preprocess((value) => value === true || value === "true" ? true : value === false || value === "false" ? false : value, z.boolean()).optional() }).refine((v) => Object.keys(v).length > 0, "Informe ao menos um campo.");
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   return handleApi(async () => {
