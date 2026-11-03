@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
@@ -14,14 +15,14 @@ const schema = z.object({
   posCashRegisterId: z.string().trim().nullable().optional(),
 });
 
-async function validatePosRegister(role: z.infer<typeof userRoleSchema>, registerId: string | null) {
+async function validatePosRegister(tx: Prisma.TransactionClient, role: z.infer<typeof userRoleSchema>, registerId: string | null) {
   const expectedSector = posSectorForRole(role);
   if (!expectedSector) {
     if (registerId) throw new ApiError(400, "Associe um caixa somente a usuários com perfil de operação do PDV.");
     return null;
   }
   if (!registerId) throw new ApiError(400, "Selecione o caixa vinculado ao perfil do PDV.");
-  const register = await prisma.cashRegister.findUnique({ where: { id: registerId }, select: { id: true, sector: true, active: true } });
+  const register = await tx.cashRegister.findUnique({ where: { id: registerId }, select: { id: true, sector: true, active: true } });
   if (!register || !register.active) throw new ApiError(400, "O caixa selecionado não existe ou está inativo.");
   if (register.sector !== expectedSector) throw new ApiError(400, "O perfil do usuário não corresponde ao setor do caixa.");
   return register.id;
@@ -41,9 +42,9 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const actor = await requireAdmin();
     const input = schema.parse(await request.json());
-    const registerId = await validatePosRegister(input.role, input.posCashRegisterId?.trim() || null);
     const passwordHash = await bcrypt.hash(input.password, 12);
     return prisma.$transaction(async (tx) => {
+      const registerId = await validatePosRegister(tx, input.role, input.posCashRegisterId?.trim() || null);
       const user = await tx.user.create({
         data: {
           name: input.name,
