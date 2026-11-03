@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireManager } from "@/lib/authorization";
 import { ApiForm } from "@/components/api-form";
 import { PosDeviceManager } from "@/components/pos-device-manager";
+import { DeleteResourceButton } from "@/components/delete-resource-button";
 
 export const dynamic = "force-dynamic";
 const typeLabels = { ENTRY: "Entrada", TABLE: "Mesa", BAR: "Bar" } as const;
@@ -12,7 +13,7 @@ export default async function PdvManagement() {
   const [products, events, tables, devices, registers] = await Promise.all([
     prisma.posProduct.findMany({ include: { eventPrices: { include: { event: { select: { name: true } } } }, _count: { select: { orderItems: true } } }, orderBy: [{ type: "asc" }, { name: "asc" }] }),
     prisma.event.findMany({ where: { status: { not: "CANCELLED" } }, orderBy: { startsAt: "desc" } }),
-    prisma.posTable.findMany({ orderBy: { name: "asc" } }),
+    prisma.posTable.findMany({ include: { _count: { select: { orders: true } } }, orderBy: { name: "asc" } }),
     prisma.posDevice.findMany({ select: { id: true, name: true, profile: true, cashRegisterId: true, active: true, cashRegister: { select: { name: true } } }, orderBy: { createdAt: "desc" } }),
     prisma.cashRegister.findMany({ where: { active: true }, orderBy: [{ sector: "asc" }, { name: "asc" }] }),
   ]);
@@ -51,6 +52,7 @@ export default async function PdvManagement() {
             { name: "basePrice", label: "Preço padrão", type: "number", min: "0.01", step: "0.01", defaultValue: product.basePrice.toFixed(2) },
           ]} submitLabel="Salvar" />
           <ApiForm endpoint={`/api/pos/products/${product.id}`} method="PATCH" hidden={{ active: product.active ? "false" : "true" }} title={product.active ? "Inativar produto" : "Reativar produto"} fields={[]} submitLabel={product.active ? "Inativar" : "Reativar"} />
+          <DeleteResourceButton endpoint={`/api/pos/products/${product.id}`} label="Excluir" confirmMessage={`Excluir o produto “${product.name}”?`} disabled={product._count.orderItems > 0 || product.eventPrices.length > 0} />
         </td>
       </tr>)}</tbody></table></div> : <p className="empty">Nenhum produto cadastrado.</p>}
     </section>
@@ -58,7 +60,7 @@ export default async function PdvManagement() {
       <h2>Mesas</h2>
       <div className="form-grid">
         <ApiForm endpoint="/api/pos/tables" title="Cadastrar mesa" fields={[{ name: "name", label: "Identificador/nome da mesa" }]} submitLabel="Cadastrar mesa" />
-        {tables.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Mesa</th><th>Status</th><th>Ação</th></tr></thead><tbody>{tables.map((table) => <tr key={table.id}><td>{table.name}</td><td>{table.active ? "Ativa" : "Inativa"}</td><td><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" hidden={{ active: table.active ? "false" : "true" }} title={table.active ? "Inativar mesa" : "Reativar mesa"} fields={[]} submitLabel={table.active ? "Inativar" : "Reativar"} /></td></tr>)}</tbody></table></div> : <p className="empty">Nenhuma mesa cadastrada.</p>}
+        {tables.length ? <div className="table-scroll"><table className="table"><thead><tr><th>Mesa</th><th>Status</th><th>Ação</th></tr></thead><tbody>{tables.map((table) => <tr key={table.id}><td>{table.name}</td><td>{table.active ? "Ativa" : "Inativa"}</td><td><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" title="Renomear mesa" fields={[{ name: "name", label: "Identificador da mesa", defaultValue: table.name }]} submitLabel="Salvar" /><ApiForm endpoint={`/api/pos/tables/${table.id}`} method="PATCH" hidden={{ active: table.active ? "false" : "true" }} title={table.active ? "Inativar mesa" : "Reativar mesa"} fields={[]} submitLabel={table.active ? "Inativar" : "Reativar"} /><DeleteResourceButton endpoint={`/api/pos/tables/${table.id}`} label="Excluir" confirmMessage={`Excluir a mesa “${table.name}”?`} disabled={table._count.orders > 0} /></td></tr>)}</tbody></table></div> : <p className="empty">Nenhuma mesa cadastrada.</p>}
       </div>
     </section>
     <PosDeviceManager devices={devices} registers={registerOptions} />
