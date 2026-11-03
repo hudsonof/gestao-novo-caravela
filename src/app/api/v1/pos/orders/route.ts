@@ -41,9 +41,9 @@ export async function POST(request: Request) {
 
     return prisma.$transaction(async (tx) => {
       const idem = `${user.userId}:${key}`;
-      const prior = await tx.posOrder.findUnique({ where: { idempotencyKey: idem }, include: { items: true, payments: true } });
+      const prior = await tx.posOrder.findUnique({ where: { idempotencyKey: idem }, include: { items: true, payments: true, session: { select: { registerId: true } } } });
       if (prior) {
-        if (prior.operatorUserId !== user.userId || prior.eventId !== input.eventId || prior.commandCode !== input.commandCode) {
+        if (prior.operatorUserId !== user.userId || prior.eventId !== input.eventId || prior.commandCode !== input.commandCode || prior.channel !== user.profile || prior.session.registerId !== user.cashRegisterId) {
           throw new ApiError(409, "Chave de idempotência reutilizada com outros dados.");
         }
         return prior;
