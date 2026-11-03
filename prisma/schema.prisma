@@ -168,6 +168,8 @@ model Event {
 
   @@index([startsAt])
   @@index([status, startsAt])
+  posProductPrices PosProductPrice[]
+  posOrders PosOrder[]
 }
 
 model CashRegister {
@@ -253,6 +255,7 @@ model LedgerEntry {
   @@index([creditAccountId, createdAt])
   @@index([kind, createdAt])
   @@unique([externalSource, externalReference])
+  posPayment PosPayment?
 }
 
 model CashClosing {
