@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type UserRole = "ADMIN" | "MANAGER";
+type UserRole = "ADMIN" | "MANAGER" | "POS_TICKETS" | "POS_TABLES" | "POS_BAR" | "POS_WAITER";
 type ManagedUser = {
   id: string;
   name: string;
@@ -11,12 +11,27 @@ type ManagedUser = {
   role: UserRole;
   active: boolean;
   hasHistory: boolean;
+  posCashRegisterId: string | null;
+  posCashRegister: { name: string } | null;
 };
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrador",
   MANAGER: "Gerente",
+  POS_TICKETS: "PDV Bilheteria",
+  POS_TABLES: "PDV Mesas",
+  POS_BAR: "PDV Bar",
+  POS_WAITER: "PDV Garçom",
 };
+
+const roleOptions: Array<{ value: UserRole; label: string }> = [
+  { value: "MANAGER", label: roleLabels.MANAGER },
+  { value: "ADMIN", label: roleLabels.ADMIN },
+  { value: "POS_TICKETS", label: roleLabels.POS_TICKETS },
+  { value: "POS_TABLES", label: roleLabels.POS_TABLES },
+  { value: "POS_BAR", label: roleLabels.POS_BAR },
+  { value: "POS_WAITER", label: roleLabels.POS_WAITER },
+];
 
 export function UserManager({
   users,
@@ -24,8 +39,10 @@ export function UserManager({
   currentPage,
   totalPages,
   totalUsers,
+  registers,
 }: {
   users: ManagedUser[];
+  registers: Array<{ value: string; label: string }>;
   currentUserId: string;
   currentPage: number;
   totalPages: number;
@@ -69,6 +86,7 @@ export function UserManager({
       name: String(data.get("name") || ""),
       email: String(data.get("email") || ""),
       role: String(data.get("role") || "MANAGER"),
+      posCashRegisterId: String(data.get("posCashRegisterId") || ""),
     };
     const password = String(data.get("password") || "");
     if (password) payload.password = password;
@@ -150,7 +168,7 @@ export function UserManager({
     {users.length ? <>
       <div className="register-table-wrap">
         <table className="register-table">
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Caixa PDV</th><th>Situação</th><th>Ações</th></tr></thead>
           <tbody>{users.map((user) => {
             const busy = busyId === user.id;
             const isCurrentUser = user.id === currentUserId;
@@ -158,6 +176,7 @@ export function UserManager({
               <td><strong>{user.name}</strong>{isCurrentUser && <div className="muted">Usuário atual</div>}</td>
               <td>{user.email}</td>
               <td>{roleLabels[user.role]}</td>
+              <td>{user.posCashRegister?.name || "—"}</td>
               <td><span className={user.active ? "tag" : "tag tag-neutral"}>{user.active ? "ATIVO" : "INATIVO"}</span></td>
               <td><div className="register-actions">
                 <button className="button button-secondary button-small" type="button" disabled={busy} onClick={() => openEdit(user)}>Editar</button>
@@ -188,7 +207,8 @@ export function UserManager({
           <label>Nome<input name="name" required minLength={2} maxLength={120} defaultValue={editing?.name || ""} autoFocus /></label>
           <label>E-mail<input name="email" type="email" required maxLength={254} defaultValue={editing?.email || ""} /></label>
           <label>{editing ? "Nova senha (opcional)" : "Senha (mínimo 14 caracteres)"}<input name="password" type="password" required={!editing} minLength={14} maxLength={200} autoComplete="new-password" placeholder={editing ? "Deixe em branco para manter a senha atual" : undefined} /></label>
-          <label>Perfil<select name="role" required defaultValue={editing?.role || "MANAGER"}>{(editing?.id === currentUserId ? [{ value: "ADMIN" as const, label: "Administrador" }] : [{ value: "MANAGER" as const, label: "Gerente" }, { value: "ADMIN" as const, label: "Administrador" }]).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label>Perfil<select name="role" required defaultValue={editing?.role || "MANAGER"}>{(editing?.id === currentUserId ? roleOptions.filter((option) => option.value === "ADMIN") : roleOptions).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label>Caixa vinculado ao perfil do PDV<select name="posCashRegisterId" defaultValue={editing?.posCashRegisterId || ""}><option value="">Não se aplica</option>{registers.map((register) => <option key={register.value} value={register.value}>{register.label}</option>)}</select><span className="muted">Obrigatório para os perfis Bilheteria, Mesas, Bar e Garçom.</span></label>
           {formMessage && <p className="notice error" role="alert">{formMessage}</p>}
           <div className="register-modal-actions">
             <button className="button button-secondary" type="button" disabled={saving} onClick={closeDialog}>Cancelar</button>
