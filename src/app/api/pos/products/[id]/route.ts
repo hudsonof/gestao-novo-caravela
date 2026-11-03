@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
 import { requireManager } from "@/lib/authorization";
 import { positiveMoney } from "@/lib/money";
+import { deleteStorageObject } from "@/lib/firebase-storage";
 
 const schema = z.object({ name: z.string().trim().min(2).max(120).optional(), description: z.string().trim().max(240).nullable().optional(), type: z.enum(["ENTRY", "TABLE", "BAR"]).optional(), basePrice: z.string().optional(), active: z.preprocess((value) => value === true || value === "true" ? true : value === false || value === "false" ? false : value, z.boolean()).optional() }).refine((v) => Object.keys(v).length > 0, "Informe ao menos um campo.");
 
@@ -37,7 +38,8 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       const product = await tx.posProduct.findUnique({ where: { id }, include: { _count: { select: { eventPrices: true, orderItems: true } } } });
       if (!product) throw new ApiError(404, "Produto não encontrado.");
       if (product._count.eventPrices || product._count.orderItems) throw new ApiError(409, "Produto possui histórico ou preços por evento; inative-o.");
-      await tx.auditLog.create({ data: { actorId: actor.userId, entity: "PosProduct", entityId: id, action: "DELETE", before: { name: product.name, type: product.type } } });
+      if (product.imagePath) await deleteStorageObject(product.imagePath);
+      await tx.auditLog.create({ data: { actorId: actor.userId, entity: "PosProduct", entityId: id, action: "DELETE", before: { name: product.name, type: product.type, imagePath: product.imagePath } } });
       await tx.posProduct.delete({ where: { id } });
       return { id };
     });
