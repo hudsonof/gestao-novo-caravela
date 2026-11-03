@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { positiveMoney } from "@/lib/money";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
@@ -13,9 +14,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const input = schema.parse(await request.json());
     const key = request.headers.get("idempotency-key") || "";
-    if (!key || key.length > 100) throw new ApiError(400, "Informe uma chave de idempotência válida.");
+    if (!key || key.length > 70) throw new ApiError(400, "Informe uma chave de idempotência válida.");
 
     return prisma.$transaction(async (tx) => {
+      const paymentKey = `${device.id}:${key}`;
+      const amount = positiveMoney(input.amount);
+      const existing = await tx.posPayment.findUnique({ where: { idempotencyKey: paymentKey } });
+      if (existing) {
+        if (existing.orderId !== id || existing.method !== input.method || !existing.amount.equals(amount)) throw new ApiError(409, "Chave de idempotência reutilizada com outros dados.");
+        return existing;
+      }
       const order = await lockOpenOrder(tx, id, device.id);
       if (!order.items.length || order.total.lessThanOrEqualTo(0)) throw new ApiError(409, "A comanda não possui itens.");
       const session = await lockDeviceSession(tx, device, order.eventId);
@@ -24,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const remaining = order.total.minus(paidAmount);
       const amount = new Prisma.Decimal(input.amount.replace(",", "."));
       if (amount.lessThanOrEqualTo(0) || amount.greaterThan(remaining)) throw new ApiError(400, "O pagamento deve ser positivo e não pode exceder o saldo da comanda.");
-      return postPosPayment({ tx, device, order, amountText: input.amount, method: input.method, idempotencyKey: `${device.id}:${key}`, sessionId: session.id, accountId: session.accountId, eventId: order.eventId, commandCode: order.commandCode });
+      return postPosPayment({ tx, device, order, amountText: input.amount, method: input.method, idempotencyKey: paymentKey, sessionId: session.id, accountId: session.accountId, eventId: order.eventId, commandCode: order.commandCode });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 });
   }, 201);
 }
