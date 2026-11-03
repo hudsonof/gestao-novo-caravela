@@ -91,7 +91,13 @@ enum PosOrderStatus {
   CANCELLED
 }
 
-enum PosProductType {\n  ENTRY\n  TABLE\n  BAR\n}\n\nenum FinanceCategoryType {
+enum PosProductType {
+  ENTRY
+  TABLE
+  BAR
+}
+
+enum FinanceCategoryType {
   INCOME
   EXPENSE
 }
