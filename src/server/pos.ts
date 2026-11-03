@@ -1,25 +1,34 @@
-import { Prisma, type PosDevice, type PosOrder } from "@prisma/client";
+import { Prisma, type PosChannel, type PosOrder } from "@prisma/client";
 import { ApiError } from "@/lib/http";
+import type { PosUserContext } from "@/lib/pos-auth";
 import { positiveMoney } from "@/lib/money";
 import { postEntryTx } from "@/server/ledger";
 
-export function productTypeForChannel(channel: PosDevice["profile"]) {
+export function productTypeForChannel(channel: PosChannel) {
   return channel === "TICKETS" ? "ENTRY" : channel === "TABLES" ? "TABLE" : "BAR";
 }
 
-export async function lockDeviceSession(tx: Prisma.TransactionClient, device: PosDevice, eventId: string) {
-  const session = await tx.cashSession.findFirst({ where: { registerId: device.cashRegisterId, eventId, status: "OPEN" }, include: { account: true, event: true } });
-  if (!session) throw new ApiError(409, "Não há sessão aberta para este terminal e evento.");
+export async function lockPosSession(tx: Prisma.TransactionClient, user: PosUserContext, eventId: string) {
+  const session = await tx.cashSession.findFirst({
+    where: { registerId: user.cashRegisterId, eventId, status: "OPEN" },
+    include: { account: true, event: true },
+  });
+  if (!session) throw new ApiError(409, "Não há sessão de caixa aberta para este usuário e evento.");
   await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashSession" WHERE "id" = ${session.id} FOR UPDATE`;
   const locked = await tx.cashSession.findUnique({ where: { id: session.id }, include: { account: true, event: true } });
   if (!locked || locked.status !== "OPEN" || locked.event.status !== "OPEN") throw new ApiError(409, "A sessão ou o evento não está aberto.");
   return locked;
 }
 
-export async function lockOpenOrder(tx: Prisma.TransactionClient, orderId: string, deviceId: string) {
+export async function lockOpenOrder(tx: Prisma.TransactionClient, orderId: string, user: PosUserContext) {
   await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "PosOrder" WHERE "id" = ${orderId} FOR UPDATE`;
-  const order = await tx.posOrder.findUnique({ where: { id: orderId }, include: { items: true, payments: true } });
-  if (!order || order.deviceId !== deviceId) throw new ApiError(404, "Comanda não encontrada.");
+  const order = await tx.posOrder.findUnique({
+    where: { id: orderId },
+    include: { items: true, payments: true, session: { select: { registerId: true } } },
+  });
+  if (!order || order.session.registerId !== user.cashRegisterId || order.channel !== user.profile) {
+    throw new ApiError(404, "Comanda não encontrada.");
+  }
   if (order.status !== "OPEN") throw new ApiError(409, "A comanda não está aberta.");
   return order;
 }
@@ -32,7 +41,7 @@ export async function recalculateOrderTotal(tx: Prisma.TransactionClient, orderI
 
 export async function postPosPayment(input: {
   tx: Prisma.TransactionClient;
-  device: PosDevice;
+  actorId: string;
   order: PosOrder;
   amountText: string;
   method: "CASH" | "PIX" | "BANK_TRANSFER" | "DEBIT" | "CREDIT";
@@ -62,7 +71,7 @@ export async function postPosPayment(input: {
     amount: amount.toFixed(2),
     description: `PDV ${input.order.channel} · comanda ${input.commandCode}`,
     idempotencyKey: `pos-payment:${input.idempotencyKey}`,
-    actorId: input.device.createdById,
+    actorId: input.actorId,
     eventId: input.eventId,
     sessionId: input.sessionId,
     kind: "SALE",
