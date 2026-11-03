@@ -16,15 +16,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!requestKey || requestKey.length > 100) throw new ApiError(400, "Informe uma chave de idempotência válida.");
 
     return prisma.$transaction(async (tx) => {
-      const order = await lockOpenOrder(tx, id, device.id);
-      const session = await tx.cashSession.findUnique({ where: { id: order.sessionId }, include: { event: true } });
-      if (!session || session.status !== "OPEN" || session.event.status !== "OPEN") throw new ApiError(409, "A sessão de caixa ou o evento foi encerrado.");
       const idem = `${device.id}:${requestKey}`;
       const prior = await tx.posOrderItem.findUnique({ where: { idempotencyKey: idem } });
       if (prior) {
         if (prior.orderId !== id || prior.productId !== input.productId || prior.quantity !== input.quantity) throw new ApiError(409, "Chave de idempotência reutilizada com outros dados.");
         return prior;
       }
+      const order = await lockOpenOrder(tx, id, device.id);
+      if (order.payments.length) throw new ApiError(409, "Não adicione itens após o primeiro pagamento.");
+      const session = await tx.cashSession.findUnique({ where: { id: order.sessionId }, include: { event: true } });
+      if (!session || session.status !== "OPEN" || session.event.status !== "OPEN") throw new ApiError(409, "A sessão de caixa ou o evento foi encerrado.");
       const product = await tx.posProduct.findUnique({ where: { id: input.productId }, include: { eventPrices: { where: { eventId: order.eventId } } } });
       if (!product || !product.active || product.type !== productTypeForChannel(device.profile)) throw new ApiError(400, "Produto indisponível para este perfil do PDV.");
       const unitPrice = product.eventPrices[0]?.price || product.basePrice;
