@@ -1,10 +1,15 @@
 import NextAuth from "next-auth";
+import { UserRole } from "@prisma/client";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "./src/lib/db";
 import { clearLoginFailures, isLoginBlocked, registerLoginFailure } from "./src/lib/login-rate-limit";
+
+function isUserRole(value: unknown): value is UserRole {
+  return typeof value === "string" && Object.values(UserRole).includes(value as UserRole);
+}
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -64,7 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = token.role ?? "MANAGER";
+        session.user.role = isUserRole(token.role) ? token.role : UserRole.MANAGER;
         session.user.posCashRegisterId = token.posCashRegisterId ?? null;
       }
       return session;
