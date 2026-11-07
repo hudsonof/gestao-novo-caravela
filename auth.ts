@@ -66,7 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.sub ?? "";
         session.user.role = (token.role as UserRole | undefined) ?? UserRole.MANAGER;
-        session.user.posCashRegisterId = typeof token.posCashRegisterId === "string" ? token.posCashRegisterId : null;
+        session.user.posCashRegisterId = token.posCashRegisterId ?? null;
       }
       return session;
     },
