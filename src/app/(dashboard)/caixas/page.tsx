@@ -21,10 +21,15 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
   const parsedPage = Number(params.page);
   const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-  const [totalRegisters, activeRegisters, employees, openShifts, closedShifts] = await Promise.all([
+  const [totalRegisters, activeRegisters, employees, legacyOpenSessions, openShifts, closedShifts] = await Promise.all([
     prisma.cashRegister.count(),
     prisma.cashRegister.findMany({ where: { active: true }, orderBy: [{ sector: "asc" }, { name: "asc" }], select: { id: true, name: true, sector: true } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.cashSession.findMany({
+      where: { status: "OPEN" },
+      include: { register: true, event: true, employee: true, account: true },
+      orderBy: { openedAt: "asc" },
+    }),
     prisma.cashRegisterShift.findMany({
       where: { status: "OPEN" },
       include: { register: true, employee: true, withdrawals: { orderBy: { createdAt: "asc" } } },
@@ -71,6 +76,20 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
       ]} submitLabel="Abrir caixa" /> : <div className="card empty">Cadastre e ative um caixa para iniciar uma operação.</div>}
     </section>
 
+
+    {legacyOpenSessions.length > 0 && <section className="section">
+      <h2>Sessões anteriores ainda abertas</h2>
+      <div className="notice">Feche essas sessões antes de abrir o novo fluxo para o mesmo caixa. O histórico financeiro anterior será preservado.</div>
+      <div className="session-grid">{legacyOpenSessions.map((session) => <div className="card" key={session.id}>
+        <strong>{session.register.name}</strong>
+        <p className="muted">{session.event.name} · responsável: {session.employee?.name || "não informado"}</p>
+        <p>Saldo registrado: <strong>{formatBRL(session.account.balance)}</strong></p>
+        <ApiForm endpoint={"/api/cash-sessions/" + session.id + "/close"} title="Encerrar sessão anterior" fields={[
+          { name: "countedAmount", label: "Dinheiro contado", type: "number", min: "0", step: "0.01", defaultValue: session.account.balance.toFixed(2) },
+          { name: "justification", label: "Justificativa se houver diferença", required: false },
+        ]} submitLabel="Encerrar sessão" />
+      </div>)}</div>
+    </section>}
     <section className="section">
       <h2>Caixas abertos</h2>
       {openShifts.length ? <div className="session-grid">{openShifts.map((shift) => {

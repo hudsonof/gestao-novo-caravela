@@ -31,11 +31,22 @@ export async function POST(request: Request) {
     return prisma.$transaction(async (tx) => {
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegister" WHERE "id" = ${input.registerId} FOR UPDATE`;
       const repeated = await tx.cashRegisterShift.findUnique({ where: { idempotencyKey } });
-      if (repeated) return repeated;
+      if (repeated) {
+        const same = repeated.registerId === input.registerId &&
+          repeated.employeeId === (input.employeeId || null) &&
+          repeated.openingFloat.equals(openingFloat);
+        if (!same) throw new ApiError(409, "A chave de idempotência já foi usada em outra abertura.");
+        return repeated;
+      }
 
       const register = await tx.cashRegister.findUnique({ where: { id: input.registerId }, select: { id: true, name: true, active: true } });
       if (!register) throw new ApiError(404, "Caixa não encontrado.");
       if (!register.active) throw new ApiError(409, "Ative o caixa antes de abrir uma operação.");
+      const legacyOpenSession = await tx.cashSession.findFirst({
+        where: { registerId: register.id, status: "OPEN" },
+        select: { id: true },
+      });
+      if (legacyOpenSession) throw new ApiError(409, "Este caixa possui uma sessão anterior aberta. Feche-a antes de iniciar a nova operação.");
 
       if (input.employeeId) {
         const employee = await tx.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, active: true } });

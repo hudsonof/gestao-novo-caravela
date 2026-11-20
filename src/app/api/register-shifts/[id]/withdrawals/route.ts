@@ -22,7 +22,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegisterShift" WHERE "id" = ${id} FOR UPDATE`;
       if (!rows.length) throw new ApiError(404, "Operação de caixa não encontrada.");
       const repeated = await tx.cashRegisterWithdrawal.findUnique({ where: { idempotencyKey } });
-      if (repeated) return repeated;
+      if (repeated) {
+        if (repeated.shiftId !== id || !repeated.amount.equals(amount) || repeated.observation !== input.observation) {
+          throw new ApiError(409, "A chave de idempotência já foi usada em outra retirada.");
+        }
+        return repeated;
+      }
 
       const shift = await tx.cashRegisterShift.findUnique({ where: { id }, select: { id: true, status: true } });
       if (!shift) throw new ApiError(404, "Operação de caixa não encontrada.");

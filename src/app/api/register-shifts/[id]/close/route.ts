@@ -24,12 +24,23 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const creditSales = new Prisma.Decimal(input.creditSales);
     const pixSales = new Prisma.Decimal(input.pixSales);
     const countedCash = new Prisma.Decimal(input.countedCash);
+    const justification = input.justification?.trim() || null;
 
     return prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegisterShift" WHERE "id" = ${id} FOR UPDATE`;
       if (!rows.length) throw new ApiError(404, "Operação de caixa não encontrada.");
       const repeated = await tx.cashRegisterClosing.findUnique({ where: { idempotencyKey } });
-      if (repeated) return repeated;
+      if (repeated) {
+        const same = repeated.shiftId === id &&
+          repeated.cashSales.equals(cashSales) &&
+          repeated.debitSales.equals(debitSales) &&
+          repeated.creditSales.equals(creditSales) &&
+          repeated.pixSales.equals(pixSales) &&
+          repeated.countedCash.equals(countedCash) &&
+          repeated.justification === justification;
+        if (!same) throw new ApiError(409, "A chave de idempotência já foi usada em outro fechamento.");
+        return repeated;
+      }
 
       const shift = await tx.cashRegisterShift.findUnique({
         where: { id },
@@ -41,7 +52,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const withdrawals = shift.withdrawals.reduce((sum, withdrawal) => sum.plus(withdrawal.amount), new Prisma.Decimal(0));
       const expectedCash = new Prisma.Decimal(shift.openingFloat).plus(cashSales).minus(withdrawals);
       const difference = countedCash.minus(expectedCash);
-      const justification = input.justification?.trim() || null;
       if (!difference.isZero() && !justification) {
         throw new ApiError(400, "Explique a diferença entre o dinheiro esperado e o valor contado.");
       }
