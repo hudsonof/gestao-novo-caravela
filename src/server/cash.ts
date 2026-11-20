@@ -35,6 +35,11 @@ export async function openCashSession(input: OpenCashSessionInput) {
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegister" WHERE "id" = ${input.registerId} FOR UPDATE`;
       const register = await tx.cashRegister.findUnique({ where: { id: input.registerId } });
       if (!register || !register.active) throw new ApiError(404, "Caixa não encontrado ou inativo.");
+      const simplifiedOpenShift = await tx.cashRegisterShift.findFirst({
+        where: { registerId: input.registerId, status: "OPEN" },
+        select: { id: true },
+      });
+      if (simplifiedOpenShift) throw new ApiError(409, "Este caixa já possui uma operação aberta no fluxo simplificado.");
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Event" WHERE "id" = ${input.eventId} FOR UPDATE`;
       const event = await tx.event.findUnique({ where: { id: input.eventId } });
       if (!event || event.status !== "OPEN") throw new ApiError(409, "Abra o evento antes de abrir um caixa.");

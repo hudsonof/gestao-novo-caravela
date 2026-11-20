@@ -4,18 +4,8 @@ import { auth } from "../../../auth";
 import { logout } from "../actions";
 
 const links = [
-  ["/", "Visão geral"],
-  ["/eventos", "Eventos"],
-  ["/caixas", "Caixas"],
-  ["/movimentacoes", "Movimentações"],
-  ["/despesas", "Contas a pagar"],
-  ["/cofre", "Cofre central"],
-  ["/relatorios", "Relatórios"],
-  ["/auditoria", "Auditoria"],
+  ["/caixas", "Controle de caixas"],
   ["/equipe", "Colaboradores"],
-  ["/categorias", "Categorias"],
-  ["/pdv", "PDV e catálogos"],
-  ["/pdv/vendas", "Pedidos do PDV"],
 ];
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -26,10 +16,9 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="brand">NOVO CARAVELA<small>Gestão financeira de eventos</small></div>
+        <div className="brand">NOVO CARAVELA<small>Gestão simplificada</small></div>
         <nav className="nav">
           {links.map(([href, name]) => <Link key={href} href={href} className="navlink">{name}</Link>)}
-          {session.user.role === "ADMIN" && <Link href="/usuarios" className="navlink">Usuários</Link>}
         </nav>
         <div className="sidebar-user">
           <span>{session.user.name} · {session.user.role === "ADMIN" ? "Administrador" : "Gerente"}</span>

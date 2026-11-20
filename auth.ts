@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { UserRole } from "@prisma/client";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
@@ -64,8 +65,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = token.role ?? "MANAGER";
-        session.user.posCashRegisterId = token.posCashRegisterId ?? null;
+        session.user.role = (token.role as UserRole | undefined) ?? UserRole.MANAGER;
+        session.user.posCashRegisterId = (token.posCashRegisterId as string | null | undefined) ?? null;
       }
       return session;
     },
