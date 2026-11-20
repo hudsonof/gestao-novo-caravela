@@ -148,7 +148,7 @@ export function CashRegisterManager({
     {registers.length ? <>
       <div className="register-table-wrap">
         <table className="register-table">
-          <thead><tr><th>Caixa</th><th>Setor</th><th>Sessões</th><th>Situação</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Caixa</th><th>Setor</th><th>Operações</th><th>Situação</th><th>Ações</th></tr></thead>
           <tbody>{registers.map((register) => {
             const busy = busyId === register.id;
             const hasHistory = register.totalActivity > 0;

@@ -21,7 +21,7 @@ export default async function Equipe({ searchParams }: { searchParams: Promise<{
     skip: (currentPage - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
     include: {
-      _count: { select: { sessions: true, compensations: true, registerShifts: true } },
+      _count: { select: { sessions: true, compensations: true, registerShifts: true, waiterOrders: true, operatorOrders: true } },
       sessions: { where: { status: "OPEN" }, select: { id: true } },
       registerShifts: { where: { status: "OPEN" }, select: { id: true } },
     },
@@ -37,7 +37,7 @@ export default async function Equipe({ searchParams }: { searchParams: Promise<{
         name: employee.name,
         position: employee.position,
         active: employee.active,
-        hasHistory: _count.sessions + _count.compensations + _count.registerShifts > 0,
+        hasHistory: _count.sessions + _count.compensations + _count.registerShifts + _count.waiterOrders + _count.operatorOrders > 0,
         openShifts: sessions.length + registerShifts.length,
       }))}
       currentPage={currentPage}
