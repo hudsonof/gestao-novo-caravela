@@ -50,11 +50,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Employee" WHERE "id" = ${id} FOR UPDATE`;
       const employee = await tx.employee.findUnique({
         where: { id },
-        include: { _count: { select: { sessions: true, compensations: true } } },
+        include: { _count: { select: { sessions: true, compensations: true, registerShifts: true } } },
       });
       if (!employee) throw new ApiError(404, "Colaborador não encontrado.");
-      if (employee._count.sessions > 0 || employee._count.compensations > 0) {
-        throw new ApiError(409, "Este colaborador possui sessões ou diárias vinculadas. Inative-o para preservar o histórico.");
+      if (employee._count.sessions > 0 || employee._count.compensations > 0 || employee._count.registerShifts > 0) {
+        throw new ApiError(409, "Este colaborador possui histórico de caixa ou pagamentos. Inative-o para preservar os registros.");
       }
 
       await tx.auditLog.create({
