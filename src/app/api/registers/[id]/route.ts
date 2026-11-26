@@ -16,15 +16,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const input = updateSchema.parse(await request.json());
     return prisma.$transaction(async (tx) => {
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegister" WHERE "id" = ${id} FOR UPDATE`;
-      const current = await tx.cashRegister.findUnique({ where: { id }, include: { _count: { select: { sessions: true } } } });
+      const current = await tx.cashRegister.findUnique({
+        where: { id },
+        include: { _count: { select: { sessions: true, registerShifts: true, posDevices: true, posUsers: true } } },
+      });
       if (!current) throw new ApiError(404, "Caixa não encontrado.");
       if (input.active === false) {
-        const openSessions = await tx.cashSession.count({ where: { registerId: id, status: "OPEN" } });
-        if (openSessions) throw new ApiError(409, "Feche as sessões abertas antes de inativar este caixa.");
+        const [openSessions, openShifts] = await Promise.all([
+          tx.cashSession.count({ where: { registerId: id, status: "OPEN" } }),
+          tx.cashRegisterShift.count({ where: { registerId: id, status: "OPEN" } }),
+        ]);
+        if (openSessions + openShifts) throw new ApiError(409, "Feche os caixas abertos antes de inativar este caixa.");
       }
       const changedIdentity = (input.name && input.name !== current.name) || (input.sector && input.sector !== current.sector);
-      if (changedIdentity && current._count.sessions > 0) {
-        throw new ApiError(409, "Caixas com histórico não podem mudar de nome ou setor. Inative este e cadastre outro para preservar os relatórios.");
+      if (changedIdentity && current._count.sessions + current._count.registerShifts > 0) {
+        throw new ApiError(409, "Caixas com histórico não podem mudar de nome ou setor. Inative este e cadastre outro.");
       }
       if (input.name && input.name !== current.name) {
         const duplicate = await tx.cashRegister.findUnique({ where: { name: input.name }, select: { id: true } });
@@ -52,21 +58,14 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegister" WHERE "id" = ${id} FOR UPDATE`;
       const current = await tx.cashRegister.findUnique({
         where: { id },
-        include: { _count: { select: { sessions: true } } },
+        include: { _count: { select: { sessions: true, registerShifts: true, posDevices: true, posUsers: true } } },
       });
       if (!current) throw new ApiError(404, "Caixa não encontrado.");
-      if (current._count.sessions > 0) {
-        throw new ApiError(409, "Caixas com histórico não podem ser excluídos. Inative este caixa para preservar os registros financeiros.");
+      if (current._count.sessions + current._count.registerShifts + current._count.posDevices + current._count.posUsers > 0) {
+        throw new ApiError(409, "Caixas com sessões, operações ou vínculo com PDV não podem ser excluídos. Inative este caixa para preservar o histórico.");
       }
-
       await tx.auditLog.create({
-        data: {
-          actorId: actor.userId,
-          entity: "CashRegister",
-          entityId: id,
-          action: "DELETE",
-          before: { name: current.name, sector: current.sector, active: current.active },
-        },
+        data: { actorId: actor.userId, entity: "CashRegister", entityId: id, action: "DELETE", before: { name: current.name, sector: current.sector, active: current.active } },
       });
       await tx.cashRegister.delete({ where: { id } });
       return { id, deleted: true };

@@ -15,8 +15,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const employee = await tx.employee.findUnique({ where: { id } });
       if (!employee) throw new ApiError(404, "Colaborador não encontrado.");
       if (!active) {
-        const openSessions = await tx.cashSession.count({ where: { employeeId: id, status: "OPEN" } });
-        if (openSessions) throw new ApiError(409, "Feche as sessões atribuídas antes de inativar o colaborador.");
+        const [openSessions, openShifts] = await Promise.all([
+          tx.cashSession.count({ where: { employeeId: id, status: "OPEN" } }),
+          tx.cashRegisterShift.count({ where: { employeeId: id, status: "OPEN" } }),
+        ]);
+        if (openSessions + openShifts) throw new ApiError(409, "Feche os caixas atribuídos antes de inativar o colaborador.");
       }
       const updated = await tx.employee.update({ where: { id }, data: { active } });
       await tx.auditLog.create({ data: { actorId: actor.userId, entity: "Employee", entityId: id, action: active ? "ACTIVATE" : "DEACTIVATE", before: { active: employee.active }, after: { active } } });
