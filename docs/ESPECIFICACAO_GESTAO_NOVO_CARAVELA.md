@@ -520,19 +520,21 @@ Server Actions podem ser usadas nas operações internas da UI; Route Handlers s
 
 ## 14. Situação do desenvolvimento
 
-A base inicial foi incorporada à branch main. Ela inclui Next.js, Prisma, telas de consulta, serviços para transferências e fechamento e um endpoint de saúde. Isso ainda não equivale à conclusão do MVP. Permanecem pendentes: autenticação/autorização, migrations verificadas em PostgreSQL real, operações de escrita na interface e API, abertura de sessões e distribuição de troco, integrações, conciliação, auditoria integral e homologação.
+Esta especificação registra o escopo funcional amplo definido no início do projeto. Ela também serve como referência e backlog; não significa que todos os módulos descritos estejam disponíveis na navegação atual.
 
-O repositório do projeto é `https://github.com/hudsonof/gestao-novo-caravela`. Esta especificação está versionada em `docs/ESPECIFICACAO_GESTAO_NOVO_CARAVELA.md`; a base inicial está na branch `main`. O sistema ainda não está homologado para registrar dinheiro real.
+Na versão simplificada, a navegação principal é focada em **Controle de caixas** e **Colaboradores**. O login é feito pelo Auth.js com contas `ADMIN` e `MANAGER`. O fluxo de caixas permite cadastrar caixas por setor, abrir operação com troco, registrar retiradas e fechar com dinheiro contado e justificativa de divergência. O guia [Controle de caixas e colaboradores](controle-de-caixas.md) descreve as regras atuais.
+
+O projeto mantém código e documentação de módulos mais amplos e da API do PDV. A integração do aplicativo Android/Flutter e pagamentos Stone continua separada; veja [API e gestão do PDV](pos-api.md).
+
+A implementação registrada no PR #20 inclui modais para retirada e fechamento, o total consolidado **Vendas (Máquina)** e exclusão auditada de retiradas enquanto a operação permanece aberta. A migration correspondente adiciona a coluna agregada sem remover a discriminação dos fechamentos antigos. Aplique migrations ao banco de destino antes de publicar código que dependa de novas colunas.
 
 ## 15. Próximos passos
 
-1. Revisar o schema Prisma real do repositório e alinhar com esta especificação.
-2. Criar migrations e validar conexão com PostgreSQL de desenvolvimento.
-3. Implementar autenticação e autorização de administrador/gerente.
-4. Finalizar o serviço transacional de movimentações e testes críticos.
-5. Entregar CRUD de eventos, caixas, fundo, despesas e fechamento.
-6. Homologar fluxo completo com dados fictícios antes de usar dinheiro real.
+1. Usar esta especificação ampla como backlog e priorizar os próximos módulos sem reativar telas fora do escopo simplificado sem validação.
+2. Revisar cada fluxo com valores fictícios e confirmar permissões para ADMIN e MANAGER.
+3. Aplicar as migrations no ambiente alvo e validar abertura, retirada, exclusão, fechamento e justificativa de divergência antes da operação com dinheiro real.
+4. Definir a homologação e os procedimentos de backup e recuperação do banco.
 
 ---
 
-**Documento de referência para desenvolvimento do Novo Caravela.** Qualquer mudança que afete o cálculo de saldos, reconhecimento de receitas, contas a pagar ou rastreabilidade deve ser registrada e revisada antes de implementação.
+**Documento de referência para evolução do Novo Caravela.** Alterações que afetem saldos, receitas, despesas ou rastreabilidade devem ser documentadas e revisadas.
