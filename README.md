@@ -1,73 +1,46 @@
-# Novo Caravela — Gestão Financeira
+# Novo Caravela — Gestão
 
-Sistema web para gestão do fluxo de caixa do salão de eventos Novo Caravela.
+Aplicação web interna para apoiar a operação do salão de eventos Novo Caravela.
 
-## Stack
+## Escopo da interface atual
 
-- Next.js App Router, React e TypeScript
-- PostgreSQL no Supabase e Prisma ORM 6
-- Auth.js Credentials para acesso de administradores e gerentes
-- Deploy previsto na Vercel
+A navegação principal é focada em:
 
-## Preparar ambiente
+- **Controle de caixas**: cadastro dos caixas por setor, abertura de operação com troco, retiradas e fechamento com batimento.
+- **Colaboradores**: cadastro e manutenção dos funcionários que podem ser associados às operações.
 
-1. Copie `.env.example` para `.env` e obtenha as URLs em **Supabase Dashboard → Connect**:
-   - `DATABASE_URL`: use o **Transaction pooler** (porta 6543) para as conexões da aplicação na Vercel. O exemplo inclui `pgbouncer=true` e `connection_limit=1`.
-   - `DIRECT_URL`: use o **Session pooler** (porta 5432) ou a conexão direta, se o ambiente tiver suporte de rede compatível. O Prisma CLI usa essa URL para gerar e aplicar migrations.
-   - Copie as strings exibidas pelo Supabase e substitua os valores do exemplo. Se a senha tiver caracteres reservados em URL, faça o percent-encoding deles.
-2. Gere um `AUTH_SECRET` aleatório, ajuste `BUSINESS_TIME_ZONE` para o fuso do salão e defina as credenciais iniciais de administrador. A senha inicial precisa ter ao menos 14 caracteres.
-3. Instale as dependências e aplique o schema:
+O acesso à gestão é protegido por autenticação Auth.js e perfis `ADMIN` e `MANAGER`. O projeto usa PostgreSQL no Supabase com Prisma ORM; o aplicativo PDV Android/Flutter é separado.
+
+## Tecnologias
+
+- Next.js App Router 15, React 19 e TypeScript
+- PostgreSQL e Prisma ORM 6
+- Auth.js Credentials
+- Zod para validação
+- Deploy na Vercel
+
+## Instalação rápida
+
+Consulte o guia [Instalação e implantação](docs/instalacao-e-deploy.md) para variáveis de ambiente, conexão com Supabase, seed inicial, migrations e deploy.
 
 ```bash
-npm install
+npm ci
+cp .env.example .env
 npm run db:generate
 npm run db:deploy
 npm run db:seed
 npm run dev
 ```
 
-Depois, entre em `/login`. A rotina de seed cria as contas internas (fundo, cofre, banco, recebíveis, trânsito e contrapartida externa), três caixas de exemplo e o administrador inicial quando as variáveis `INITIAL_ADMIN_*` estão preenchidas. A senha é armazenada com hash; o seed não troca a senha de um usuário que já existe.
+## Documentação
 
-## Módulos disponíveis
+O índice de documentos está em [`docs/README.md`](docs/README.md). Os guias principais são:
 
-- Eventos com estados planejado, aberto, encerrado e cancelado; eventos planejados podem ser editados e têm responsável identificado.
-- Cadastro de caixas por setor com edição antes do primeiro uso e inativação preservando o histórico; sessões por evento e colaborador, fundo de troco, sangria para o cofre e fechamento com contagem física.
-- Entradas em dinheiro, Pix, débito, crédito e transferência bancária.
-- Despesas vinculadas a evento ou gerais, categorias padronizadas, vencimentos sinalizados e pagamentos parciais.
-- Cadastro de categorias de receitas e despesas, com inativação preservando os nomes usados em lançamentos históricos.
-- Diárias e cachês por colaborador, com associação opcional a evento, pagamentos parciais, estorno e histórico.
-- Transferências entre contas, fundo central, cofre, valores em trânsito, recebíveis e banco.
-- Preparação, confirmação bancária ou cancelamento auditado de depósitos.
-- Resumos por período, evento, método, categoria, conta e divergência de fechamento, com exportação CSV e consulta da trilha de auditoria.
-- Cadastro de colaboradores sem credencial e usuários ADMIN/MANAGER com controle de acesso.
-- Estornos por novo lançamento, trilha de auditoria e chaves de idempotência.
+- [Visão geral técnica](docs/visao-geral-tecnica.md)
+- [Controle de caixas e colaboradores](docs/controle-de-caixas.md)
+- [API de controle de caixas](docs/api-controle-de-caixas.md)
+- [Instalação e implantação](docs/instalacao-e-deploy.md)
+- [Especificação funcional original](docs/ESPECIFICACAO_GESTAO_NOVO_CARAVELA.md)
+- [API e gestão do PDV](docs/pos-api.md)
 
-## Regras financeiras
-
-- Dinheiro fica em contas físicas de sessão; Pix e transferência entram na conta bancária; cartão de débito/crédito entra em recebíveis.
-- Transferências internas não entram como receita nem despesa.
-- Despesa cadastrada não reduz caixa até haver pagamento.
-- Divergência de fechamento exige justificativa e gera ajuste auditado para alinhar o saldo físico contado.
-- Após fechar uma sessão, seu saldo só pode ser recolhido ao cofre. O evento só pode ser encerrado depois de fechar as sessões e recolher os saldos.
-- Lançamentos não devem ser editados ou apagados; correções são feitas com estorno identificado.
-- Valores são armazenados como `NUMERIC(18,2)`; operações de saldo usam transação e bloqueio de linha.
-
-## Integração de adquirente
-
-A API `POST /api/transactions/import` aceita vendas normalizadas com origem e referência externa únicas, para permitir uma futura ingestão idempotente. A integração automática Stone permanece pendente de credenciais e documentação/API para liquidação e conciliação. O sistema registra vendas manualmente por meio de pagamento e mantém cartão em recebíveis até transferência/baixa.
-
-O cadastro do responsável pelo transporte do depósito e a referência textual do comprovante são registrados. O upload privado de arquivos ainda exige a configuração de um serviço de armazenamento seguro.
-
-## Rotas principais
-
-- Telas: `/`, `/eventos`, `/caixas`, `/movimentacoes`, `/despesas`, `/cofre`, `/relatorios`, `/auditoria`, `/equipe`, `/usuarios` (administrador).
-- APIs de escrita financeira e cadastro são protegidas por sessão autenticada; a exceção pública é a checagem de saúde da aplicação.
-- As rotas de API validam payloads, registram o ator e usam idempotência em operações financeiras.
-
-## Implantação
-
-Configure `DATABASE_URL` (pooler transacional), `DIRECT_URL` (pooler de sessão ou conexão direta), `AUTH_SECRET` e `AUTH_TRUST_HOST` nas variáveis do ambiente da Vercel. Aplique migrations controladas com `npm run db:deploy` e execute o seed administrativo apenas no primeiro setup. Não use credenciais de exemplo em ambiente publicado.
-
-Antes de operar com valores reais, conecte um banco de homologação, revise as permissões de deploy e execute a bateria de validação funcional, concorrência e recuperação de backup. Não há conexão ativa com banco de produção neste repositório.
-
-As migrations mais recentes adicionam responsáveis do evento e do transporte do depósito, referências externas de movimentações, categorias financeiras e controle de diárias/cachês. Aplique-as com `npm run db:deploy` e execute `npm run db:seed` para cadastrar as categorias iniciais antes de publicar a versão. Backups, recuperação e monitoramento de produção ainda precisam ser configurados no provedor de hospedagem.
+A especificação original descreve um escopo mais amplo que a navegação atual. A documentação de controle de caixas descreve o fluxo operacional presente na versão simplificada.
