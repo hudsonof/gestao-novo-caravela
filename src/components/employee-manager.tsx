@@ -175,7 +175,7 @@ export function EmployeeManager({
     </div>}
 
     {dialog && <div className="register-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-      <section className="card register-modal" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title" onKeyDown={(event) => { if (event.key === "Escape") closeDialog(); }}>
+      <section className="card register-modal employee-modal" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title" onKeyDown={(event) => { if (event.key === "Escape") closeDialog(); }}>
         <div className="register-modal-header">
           <div>
             <h2 id="employee-modal-title">{dialog === "EDIT" ? "Editar colaborador" : "Novo colaborador"}</h2>
