@@ -5,3 +5,11 @@
 .employee-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.employee-modal .api-form{padding:0;border:0;box-shadow:none}.employee-modal .api-form>h2{display:none}@media(max-width:700px){.employee-toolbar-actions{justify-content:flex-start;width:100%}.employee-toolbar-actions .button{flex:1}}
 
 .pos-product-thumbnail{width:68px;height:58px;border-radius:9px;background:#edf2f7 center/cover no-repeat;display:grid;place-items:center;text-align:center;color:#64748b;font-size:10px;padding:3px}.pos-remove-image{display:flex!important;align-items:center;gap:9px!important}.pos-remove-image input{width:auto!important}
+
+
+.cash-shift-actions{display:flex;gap:10px;flex-wrap:wrap}
+.cash-withdrawal-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
+.cash-shift-modal .api-form{padding:0;border:0;box-shadow:none}
+.cash-shift-modal .api-form>h2{display:none}
+.cash-shift-help{margin:-8px 0 12px}
+@media(max-width:600px){.cash-withdrawal-list li{align-items:flex-start;flex-direction:column}}

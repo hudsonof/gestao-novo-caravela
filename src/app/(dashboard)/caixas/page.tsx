@@ -4,6 +4,7 @@ import { formatBRL } from "@/lib/money";
 import { requireManager } from "@/lib/authorization";
 import { ApiForm } from "@/components/api-form";
 import { CashRegisterManager } from "@/components/cash-register-manager";
+import { CashShiftActions } from "@/components/cash-shift-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -104,24 +105,15 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
           <div className="summary-row"><span>Troco inicial</span><strong>{formatBRL(shift.openingFloat)}</strong></div>
           <div className="summary-row"><span>Retiradas</span><strong>{formatBRL(withdrawalsTotal)}</strong></div>
           <div className="summary-row"><span>Troco menos retiradas <span className="muted">(sem vendas)</span></span><strong>{formatBRL(floatAfterWithdrawals)}</strong></div>
-          {shift.withdrawals.length > 0 && <details className="section">
-            <summary>Ver retiradas ({shift.withdrawals.length})</summary>
-            <ul className="proof-list">{shift.withdrawals.map((item) => <li key={item.id}>{formatDate(item.createdAt)} · {formatBRL(item.amount)} · {item.observation}</li>)}</ul>
-          </details>}
-          <div className="form-grid section">
-            <ApiForm endpoint={"/api/register-shifts/" + shift.id + "/withdrawals"} title="Retirada do caixa" fields={[
-              { name: "amount", label: "Valor da retirada", type: "number", min: "0.01", step: "0.01" },
-              { name: "observation", label: "Observação" },
-            ]} submitLabel="Registrar retirada" />
-            <ApiForm endpoint={"/api/register-shifts/" + shift.id + "/close"} title="Fechamento e batimento" fields={[
-              { name: "cashSales", label: "Vendas em dinheiro", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
-              { name: "debitSales", label: "Vendas no débito", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
-              { name: "creditSales", label: "Vendas no crédito", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
-              { name: "pixSales", label: "Vendas no Pix", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
-              { name: "countedCash", label: "Dinheiro contado no caixa", type: "number", min: "0", step: "0.01", defaultValue: "0.00" },
-              { name: "justification", label: "Justificativa da diferença (se houver)", required: false },
-            ]} submitLabel="Fechar caixa" />
-          </div>
+          <CashShiftActions
+            shiftId={shift.id}
+            withdrawals={shift.withdrawals.map((item) => ({
+              id: item.id,
+              dateLabel: formatDate(item.createdAt),
+              amountLabel: formatBRL(item.amount),
+              observation: item.observation,
+            }))}
+          />
           <p className="muted">Dinheiro esperado = troco inicial + vendas em dinheiro − retiradas. Diferenças exigem justificativa.</p>
         </div>;
       })}</div> : <div className="card empty">Nenhum caixa aberto.</div>}
@@ -130,19 +122,17 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
     <section className="section card">
       <h2>Fechamentos recentes</h2>
       {closedShifts.length ? <div className="table-scroll"><table className="table">
-        <thead><tr><th>Caixa / data</th><th>Responsável</th><th>Vendas (dinheiro)</th><th>Cartões</th><th>Pix</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Retiradas</th></tr></thead>
+        <thead><tr><th>Caixa / data</th><th>Responsável</th><th>Vendas (dinheiro)</th><th>Vendas (Máquina)</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Retiradas</th></tr></thead>
         <tbody>{closedShifts.map((shift) => {
           const closing = shift.closing;
           const cashSales = Number(closing?.cashSales || 0);
-          const cardSales = Number(closing?.debitSales || 0) + Number(closing?.creditSales || 0);
-          const pixSales = Number(closing?.pixSales || 0);
+          const machineSales = Number(closing?.machineSales ?? (Number(closing?.debitSales || 0) + Number(closing?.creditSales || 0) + Number(closing?.pixSales || 0)));
           const withdrawalsTotal = shift.withdrawals.reduce((sum, item) => sum + Number(item.amount), 0);
           return <tr key={shift.id}>
             <td><strong>{shift.register.name}</strong><div className="muted">{formatDate(shift.closedAt || shift.openedAt)}</div></td>
             <td>{shift.employee?.name || "—"}</td>
             <td>{formatBRL(cashSales)}</td>
-            <td>{formatBRL(cardSales)}</td>
-            <td>{formatBRL(pixSales)}</td>
+            <td>{formatBRL(machineSales)}</td>
             <td>{closing ? formatBRL(closing.expectedCash) : "—"}</td>
             <td>{closing ? formatBRL(closing.countedCash) : "—"}</td>
             <td>{closing ? <><strong>{formatBRL(closing.difference)}</strong>{closing.justification && <div className="muted">{closing.justification}</div>}</> : "—"}</td>

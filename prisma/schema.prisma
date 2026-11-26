@@ -235,6 +235,7 @@ model CashRegisterClosing {
   shiftId        String            @unique
   idempotencyKey String            @unique
   cashSales      Decimal           @db.Decimal(18, 2)
+  machineSales   Decimal           @default(0) @db.Decimal(18, 2)
   debitSales     Decimal           @db.Decimal(18, 2)
   creditSales    Decimal           @db.Decimal(18, 2)
   pixSales       Decimal           @db.Decimal(18, 2)
