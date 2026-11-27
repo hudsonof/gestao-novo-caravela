@@ -14,7 +14,9 @@ Esta documentação descreve os endpoints de operações simplificadas de caixa.
 
 | Método e rota | Descrição | Idempotência |
 | --- | --- | --- |
-| `GET /api/register-shifts` | Lista até 100 operações, com caixa, colaborador, retiradas e fechamento | Não se aplica |\n| `GET /api/registers/{id}/operations?page=1` | Lista paginada das operações simplificadas de um caixa; ADMIN/MANAGER | Não se aplica |\n| `DELETE /api/registers/{id}/operations` | Remove todas as operações simplificadas do caixa; ADMIN/MANAGER | Não exigida |
+| `GET /api/register-shifts` | Lista até 100 operações, com caixa, colaborador, retiradas e fechamento | Não se aplica |
+| `GET /api/registers/{id}/operations?page=1` | Lista paginada das operações simplificadas de um caixa; ADMIN/MANAGER | Não se aplica |
+| `DELETE /api/registers/{id}/operations` | Remove todas as operações simplificadas do caixa; ADMIN/MANAGER | Não exigida |
 | `POST /api/register-shifts` | Abre uma operação de caixa | Obrigatória |
 | `POST /api/register-shifts/{id}/withdrawals` | Registra uma retirada em operação aberta | Obrigatória |
 | `DELETE /api/register-shifts/{id}/withdrawals/{withdrawalId}` | Exclui retirada de operação aberta; somente ADMIN/MANAGER | Não exigida |
