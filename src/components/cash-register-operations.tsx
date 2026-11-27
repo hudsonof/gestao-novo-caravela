@@ -78,7 +78,7 @@ export function CashRegisterOperations({
   async function removeOperation(operation: Operation) {
     if (deletingId || clearing) return;
     const confirmed = window.confirm(
-      "Remover a operação aberta em " + formatDate(operation.openedAt) +
+      "Remover a operação iniciada em " + formatDate(operation.openedAt) +
       "? O fechamento e as retiradas vinculadas também serão removidos. Esta ação será registrada na auditoria."
     );
     if (!confirmed) return;
@@ -134,7 +134,7 @@ export function CashRegisterOperations({
         <div>
           <p className="eyebrow">Cadastro de caixas</p>
           <h2 id="cash-register-operations-title">Operações · {register.name}</h2>
-          <p className="muted cash-operations-subtitle">Confira e remova operações deste caixa.</p>
+          <p className="muted cash-operations-subtitle">Operações do controle atual. Sessões do fluxo financeiro antigo permanecem preservadas.</p>
         </div>
         <button className="register-modal-close" type="button" aria-label="Fechar operações" disabled={loading || clearing || deletingId !== null} onClick={onClose}>×</button>
       </div>
@@ -153,7 +153,7 @@ export function CashRegisterOperations({
       </div>}
 
       {data && data.legacySessionCount > 0 && <p className="notice cash-operations-legacy" role="note">
-        {data.legacySessionCount} {data.legacySessionCount === 1 ? "sessão antiga permanece" : "sessões antigas permanecem"} preservadas por estarem ligadas ao histórico financeiro. Elas não entram nesta limpeza.
+        {data.legacySessionCount} {data.legacySessionCount === 1 ? "sessão antiga permanece" : "sessões antigas permanecem"} preservadas e não entram nesta limpeza.
       </p>}
       {message && <p className="form-message" role="status">{message}</p>}
       {mutationError && <p className="notice error" role="alert">{mutationError}</p>}
