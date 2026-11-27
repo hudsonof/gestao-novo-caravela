@@ -115,3 +115,67 @@
   .cash-shift-actions{grid-template-columns:1fr}
   .cash-history-values{grid-template-columns:1fr 1fr}
 }
+
+
+/* Fixed and collapsible dashboard navigation */
+.layout{--sidebar-width:264px;position:relative;display:block;min-height:100vh}
+.layout.sidebar-is-collapsed{--sidebar-width:78px}
+.layout>.sidebar{position:fixed;inset:0 auto 0 0;z-index:100;display:flex;flex-direction:column;width:var(--sidebar-width);height:100vh;height:100dvh;overflow:hidden;padding:18px 12px 14px;background:#11243b;color:#fff;border-right:1px solid rgba(255,255,255,.08);transition:width .2s ease}
+.sidebar-brand-row{display:flex;align-items:center;gap:8px;min-height:52px;margin:0 0 22px}
+.sidebar .brand{display:flex;align-items:center;gap:11px;min-width:0;flex:1;margin:0;color:#fff;letter-spacing:.04em;font-size:13px}
+.brand-mark{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:#1d75b8;color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em}
+.brand-copy{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.brand-copy small{display:block;margin-top:4px;color:#aebfd0;font-size:11px;font-weight:400;letter-spacing:0}
+.sidebar-collapse-toggle,.sidebar-mobile-trigger{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;border:1px solid rgba(212,223,235,.15);border-radius:10px;background:transparent;color:#d4dfeb;cursor:pointer}
+.sidebar-collapse-toggle:hover{background:#243b55;color:#fff}
+.sidebar .nav{display:grid;align-content:start;gap:5px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0;padding:0 2px 10px 0}
+.sidebar .navlink{display:flex;align-items:center;gap:13px;min-height:48px;margin:0;padding:10px 12px;border-radius:10px;color:#cbd8e5;white-space:nowrap;transition:background .15s ease,color .15s ease}
+.sidebar .navlink:hover{background:#203954;color:#fff}
+.sidebar .navlink[aria-current="page"]{background:#1b3c5b;color:#fff;box-shadow:inset 3px 0 #55b8ec;font-weight:700}
+.sidebar .navlink[aria-current="page"] svg{color:#75cefa}
+.nav-label{display:grid;gap:2px;min-width:0}
+.nav-label>span{font-size:14px;font-weight:600}
+.nav-label small{overflow:hidden;color:#aebfd0;font-size:10px;text-overflow:ellipsis}
+.sidebar-footer{flex:0 0 auto;margin:12px 0 0;padding-top:12px;border-top:1px solid #31465e}
+.sidebar .sidebar-user{display:flex;align-items:center;gap:10px;margin:0;padding:6px 5px 13px;border:0;color:#fff}
+.sidebar-avatar{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:#d9ebf6;color:#163d5a;font-size:12px;font-weight:800}
+.sidebar-profile-copy{display:grid;gap:3px;min-width:0;overflow:hidden}
+.sidebar-profile-copy strong{overflow:hidden;color:#fff;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-profile-copy small{color:#aebfd0;font-size:11px}
+.sidebar-footer form{margin:0}
+.sidebar-logout{display:flex;align-items:center;gap:13px;width:100%;min-height:42px;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:#d4dfeb;text-align:left;font:inherit;cursor:pointer}
+.sidebar-logout:hover{background:rgba(220,75,75,.15);color:#ffdada}
+.layout>.main{width:calc(100% - var(--sidebar-width));max-width:1440px;min-width:0;margin:0 0 0 var(--sidebar-width);padding:36px clamp(20px,3vw,44px);flex:1}
+.sidebar-is-collapsed .sidebar-brand-row{flex-direction:column;gap:10px;margin-bottom:18px}
+.sidebar-is-collapsed .sidebar .brand{flex:0 0 auto;justify-content:center}
+.sidebar-is-collapsed .brand-copy,.sidebar-is-collapsed .nav-label,.sidebar-is-collapsed .sidebar-profile-copy,.sidebar-is-collapsed .logout-label{display:none}
+.sidebar-is-collapsed .sidebar-collapse-toggle{width:40px;height:38px;flex-basis:38px}
+.sidebar-is-collapsed .sidebar .navlink{justify-content:center;padding:11px 0}
+.sidebar-is-collapsed .sidebar .sidebar-user{justify-content:center;padding:6px 0 13px}
+.sidebar-is-collapsed .sidebar-logout{justify-content:center;padding:9px 0}
+.skip-to-content{position:fixed;top:-60px;left:12px;z-index:200;padding:10px 14px;border-radius:8px;background:#fff;color:#11243b;box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.skip-to-content:focus{top:12px}
+.sidebar-mobile-trigger{display:none}
+.sidebar-backdrop{display:none}
+.sidebar :focus-visible,.sidebar-mobile-trigger:focus-visible,.sidebar-backdrop:focus-visible,.sidebar-collapse-toggle:focus-visible{outline:3px solid #82d3fb;outline-offset:2px}
+@media(max-width:950px){
+  .layout>.sidebar{padding:16px 10px 12px}
+  .layout>.main{padding:26px 20px}
+}
+@media(max-width:720px){
+  .layout,.layout.sidebar-is-collapsed{--sidebar-width:0;display:block}
+  .layout>.sidebar,.layout.sidebar-is-collapsed>.sidebar{width:min(280px,calc(100vw - 52px));transform:translateX(-105%);transition:transform .22s ease;width:min(280px,calc(100vw - 52px));padding:18px 14px 14px}
+  .layout.mobile-menu-open>.sidebar{transform:translateX(0)}
+  .layout.sidebar-is-collapsed .sidebar-brand-row{flex-direction:row;gap:8px;margin-bottom:22px}
+  .layout.sidebar-is-collapsed .sidebar .brand{flex:1;justify-content:flex-start}
+  .layout.sidebar-is-collapsed .brand-copy,.layout.sidebar-is-collapsed .nav-label,.layout.sidebar-is-collapsed .sidebar-profile-copy,.layout.sidebar-is-collapsed .logout-label{display:block}
+  .layout.sidebar-is-collapsed .sidebar .navlink{justify-content:flex-start;padding:10px 12px}
+  .layout.sidebar-is-collapsed .sidebar .sidebar-user{justify-content:flex-start;padding:6px 5px 13px}
+  .layout.sidebar-is-collapsed .sidebar-logout{justify-content:flex-start;padding:9px 12px}
+  .sidebar-collapse-toggle{display:none}
+  .sidebar-mobile-trigger{position:fixed;top:12px;left:12px;z-index:120;width:44px;height:44px;border-color:#d8e1ec;background:#fff;color:#11243b;box-shadow:0 3px 12px rgba(20,35,56,.14)}
+  .sidebar-mobile-trigger:hover{background:#f2f6fa}
+  .sidebar-backdrop{position:fixed;inset:0;z-index:90;display:block;border:0;background:rgba(9,20,34,.52)}
+  .layout>.main{width:100%;max-width:none;margin:0;padding:76px 16px 24px}
+}
+@media(prefers-reduced-motion:reduce){.layout>.sidebar,.sidebar .navlink{transition:none}}
