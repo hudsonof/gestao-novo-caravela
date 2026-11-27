@@ -14,12 +14,12 @@ Esta documentação descreve os endpoints de operações simplificadas de caixa.
 
 | Método e rota | Descrição | Idempotência |
 | --- | --- | --- |
-| `GET /api/register-shifts` | Lista até 100 operações, com caixa, colaborador, retiradas e fechamento | Não se aplica |
+| `GET /api/register-shifts` | Lista até 100 operações, com caixa, colaborador, retiradas e fechamento | Não se aplica |\n| `GET /api/registers/{id}/operations?page=1` | Lista paginada das operações simplificadas de um caixa; ADMIN/MANAGER | Não se aplica |\n| `DELETE /api/registers/{id}/operations` | Remove todas as operações simplificadas do caixa; ADMIN/MANAGER | Não exigida |
 | `POST /api/register-shifts` | Abre uma operação de caixa | Obrigatória |
 | `POST /api/register-shifts/{id}/withdrawals` | Registra uma retirada em operação aberta | Obrigatória |
 | `DELETE /api/register-shifts/{id}/withdrawals/{withdrawalId}` | Exclui retirada de operação aberta; somente ADMIN/MANAGER | Não exigida |
 | `POST /api/register-shifts/{id}/close` | Fecha a operação e registra o batimento | Obrigatória |
-| `DELETE /api/register-shifts/{id}` | Exclui operação fechada, fechamento e retiradas; somente ADMIN | Não exigida |
+| `DELETE /api/register-shifts/{id}` | Exclui uma operação aberta ou fechada, com fechamento e retiradas; ADMIN/MANAGER | Não exigida |
 
 ## Abrir caixa
 
@@ -55,6 +55,16 @@ Regras: caixa deve estar ativo; colaborador, se informado, deve estar ativo; nã
 ## Excluir retirada
 
 `DELETE /api/register-shifts/{id}/withdrawals/{withdrawalId}` não recebe corpo. A retirada precisa pertencer à operação indicada, e essa operação deve continuar aberta. A API grava `WITHDRAWAL_DELETE` na auditoria com os dados anteriores à exclusão.
+
+## Consultar e limpar operações por caixa
+
+`GET /api/registers/{id}/operations?page=1` retorna 10 operações simplificadas por página, incluindo status, abertura, responsável, retiradas e dados de fechamento. A resposta também informa `legacySessionCount` para indicar sessões do fluxo financeiro anterior.
+
+`DELETE /api/registers/{id}/operations` não recebe corpo. ADMIN e MANAGER podem remover todas as operações simplificadas abertas e fechadas daquele caixa. A API registra snapshots individuais e um registro de limpeza na auditoria antes de remover os fechamentos, retiradas e operações. Sessões antigas do modelo financeiro (`CashSession`) são preservadas e não entram nesta limpeza.
+
+## Remover uma operação
+
+`DELETE /api/register-shifts/{id}` não recebe corpo. ADMIN e MANAGER podem remover uma operação aberta ou fechada. O fechamento e as retiradas vinculadas também são removidos; a API registra os dados anteriores na auditoria.
 
 ## Fechar caixa
 
