@@ -19,7 +19,7 @@ function formatDate(value: Date) {
 }
 
 export default async function Caixas({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  await requireManager();
+  const actor = await requireManager();
   const params = await searchParams;
   const parsedPage = Number(params.page);
   const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -132,7 +132,7 @@ export default async function Caixas({ searchParams }: { searchParams: Promise<{
       })}</div> : <div className="card empty cash-empty"><strong>Nenhum caixa aberto</strong><p>Abra um caixa para começar a operação do turno.</p>{registerOptions.length ? <CashRegisterOpening registers={registerOptions} employees={employeeOptions} /> : <a className="button button-secondary" href="#cadastro-caixas">Cadastrar um caixa</a>}</div>}
     </section>
 
-    <CashClosingHistory records={closedShifts.map((shift) => {
+    <CashClosingHistory canDelete={actor.role === "ADMIN"} records={closedShifts.map((shift) => {
       const closing = shift.closing;
       const machineSales = Number(closing?.machineSales ?? (Number(closing?.debitSales || 0) + Number(closing?.creditSales || 0) + Number(closing?.pixSales || 0)));
       const withdrawalsTotal = shift.withdrawals.reduce((sum, item) => sum + Number(item.amount), 0);
