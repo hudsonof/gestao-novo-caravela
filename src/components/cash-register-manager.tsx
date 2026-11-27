@@ -134,7 +134,7 @@ export function CashRegisterManager({
     router.push(page === 1 ? "/caixas" : `/caixas?page=${page}`);
   }
 
-  return <section className="section register-manager">
+  return <section id="cadastro-caixas" className="section register-manager">
     <div className="register-toolbar">
       <div>
         <h2>Cadastro de caixas</h2>
@@ -153,11 +153,11 @@ export function CashRegisterManager({
             const busy = busyId === register.id;
             const hasHistory = register.totalActivity > 0;
             return <tr key={register.id}>
-              <td><strong>{register.name}</strong></td>
-              <td>{sectorNames[register.sector]}</td>
-              <td>{register.totalActivity} {register.totalActivity === 1 ? "operação" : "operações"}{register.openSessions > 0 && <span className="muted"> · {register.openSessions} aberta(s)</span>}</td>
-              <td><span className={register.active ? "tag" : "tag tag-neutral"}>{register.active ? "ATIVO" : "INATIVO"}</span></td>
-              <td><div className="register-actions">
+              <td data-label="Caixa"><strong>{register.name}</strong></td>
+              <td data-label="Setor">{sectorNames[register.sector]}</td>
+              <td data-label="Operações">{register.totalActivity} {register.totalActivity === 1 ? "operação" : "operações"}{register.openSessions > 0 && <span className="muted"> · {register.openSessions} aberta(s)</span>}</td>
+              <td data-label="Situação"><span className={register.active ? "tag" : "tag tag-neutral"}>{register.active ? "ATIVO" : "INATIVO"}</span></td>
+              <td data-label="Ações"><div className="register-actions">
                 <button className="button button-secondary button-small" type="button" disabled={busy || hasHistory} title={hasHistory ? "Nome e setor ficam fixos depois da primeira operação." : "Editar caixa"} onClick={() => openEdit(register)}>Editar</button>
                 <button className="button button-secondary button-small" type="button" disabled={busy || (register.active && register.openSessions > 0)} title={register.active && register.openSessions > 0 ? "Feche as operações abertas antes de inativar." : undefined} onClick={() => changeAvailability(register)}>{busy ? "Aguarde…" : register.active ? "Inativar" : "Ativar"}</button>
                 <button className="button button-danger button-small" type="button" disabled={busy || hasHistory} title={hasHistory ? "Caixas com operações não podem ser excluídos." : "Excluir caixa"} onClick={() => deleteRegister(register)}>Excluir</button>
