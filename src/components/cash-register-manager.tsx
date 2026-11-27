@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CashRegisterOperations } from "@/components/cash-register-operations";
 
 type Sector = "TICKETS" | "TABLES" | "BAR";
 
@@ -40,6 +41,7 @@ export function CashRegisterManager({
   const router = useRouter();
   const [editing, setEditing] = useState<CashRegister | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [operationsRegister, setOperationsRegister] = useState<CashRegister | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -66,6 +68,11 @@ export function CashRegisterManager({
     setFormMessage("");
     setIsCreating(false);
     setEditing(register);
+  }
+
+  function openOperations(register: CashRegister) {
+    setMessage("");
+    setOperationsRegister(register);
   }
 
   async function saveRegister(event: FormEvent<HTMLFormElement>) {
@@ -158,6 +165,7 @@ export function CashRegisterManager({
               <td data-label="Operações">{register.totalActivity} {register.totalActivity === 1 ? "operação" : "operações"}{register.openSessions > 0 && <span className="muted"> · {register.openSessions} aberta(s)</span>}</td>
               <td data-label="Situação"><span className={register.active ? "tag" : "tag tag-neutral"}>{register.active ? "ATIVO" : "INATIVO"}</span></td>
               <td data-label="Ações"><div className="register-actions">
+                <button className="button button-secondary button-small" type="button" disabled={busy} onClick={() => openOperations(register)}>Operações</button>
                 <button className="button button-secondary button-small" type="button" disabled={busy || hasHistory} title={hasHistory ? "Nome e setor ficam fixos depois da primeira operação." : "Editar caixa"} onClick={() => openEdit(register)}>Editar</button>
                 <button className="button button-secondary button-small" type="button" disabled={busy || (register.active && register.openSessions > 0)} title={register.active && register.openSessions > 0 ? "Feche as operações abertas antes de inativar." : undefined} onClick={() => changeAvailability(register)}>{busy ? "Aguarde…" : register.active ? "Inativar" : "Ativar"}</button>
                 <button className="button button-danger button-small" type="button" disabled={busy || hasHistory} title={hasHistory ? "Caixas com operações não podem ser excluídos." : "Excluir caixa"} onClick={() => deleteRegister(register)}>Excluir</button>
@@ -193,5 +201,7 @@ export function CashRegisterManager({
         </form>
       </section>
     </div>}
+
+    {operationsRegister && <CashRegisterOperations register={operationsRegister} onClose={() => setOperationsRegister(null)} onChanged={() => router.refresh()} />}
   </section>;
 }
