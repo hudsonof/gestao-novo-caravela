@@ -136,19 +136,19 @@ export function CashRegisterOperations({
           <h2 id="cash-register-operations-title">Operações · {register.name}</h2>
           <p className="muted cash-operations-subtitle">Confira e remova operações deste caixa.</p>
         </div>
-        <button className="register-modal-close" type="button" aria-label="Fechar operações" disabled={clearing || deletingId !== null} onClick={onClose}>×</button>
+        <button className="register-modal-close" type="button" aria-label="Fechar operações" disabled={loading || clearing || deletingId !== null} onClick={onClose}>×</button>
       </div>
 
       {data && <div className="cash-operations-toolbar">
         <span className="tag tag-neutral">{data.totalOperations} {data.totalOperations === 1 ? "operação" : "operações"}</span>
-        {data.totalOperations > 0 && !confirmClear && <button className="button button-danger button-small" type="button" disabled={clearing || deletingId !== null} onClick={() => { setMutationError(""); setConfirmClear(true); }}>Limpar todas as operações</button>}
+        {data.totalOperations > 0 && !confirmClear && <button className="button button-danger button-small" type="button" disabled={loading || clearing || deletingId !== null} onClick={() => { setMutationError(""); setConfirmClear(true); }}>Limpar todas as operações</button>}
       </div>}
 
       {confirmClear && data && <div className="notice notice-warning cash-operations-confirm" role="alert">
         <p>Remover as {data.totalOperations} operações abertas e fechadas deste caixa? A exclusão ficará registrada na auditoria e não poderá ser desfeita.</p>
         <div className="register-modal-actions">
-          <button className="button button-secondary button-small" type="button" disabled={clearing} onClick={() => setConfirmClear(false)}>Cancelar</button>
-          <button className="button button-danger button-small" type="button" disabled={clearing} onClick={() => void clearOperations()}>{clearing ? "Limpando…" : "Confirmar limpeza"}</button>
+          <button className="button button-secondary button-small" type="button" disabled={loading || clearing} onClick={() => setConfirmClear(false)}>Cancelar</button>
+          <button className="button button-danger button-small" type="button" disabled={loading || clearing} onClick={() => void clearOperations()}>{clearing ? "Limpando…" : "Confirmar limpeza"}</button>
         </div>
       </div>}
 
@@ -172,7 +172,7 @@ export function CashRegisterOperations({
                 <td>{operation.withdrawalsTotal}</td>
                 <td>{operation.closedAt ? formatDate(operation.closedAt) : "—"}</td>
                 <td>{operation.differenceLabel || "—"}</td>
-                <td><button className="button button-danger button-small" type="button" disabled={clearing || deletingId !== null} onClick={() => void removeOperation(operation)}>{deletingId === operation.id ? "Removendo…" : "Remover"}</button></td>
+                <td><button className="button button-danger button-small" type="button" disabled={loading || clearing || deletingId !== null} onClick={() => void removeOperation(operation)}>{deletingId === operation.id ? "Removendo…" : "Remover"}</button></td>
               </tr>)}</tbody>
             </table>
           </div>
@@ -192,7 +192,7 @@ export function CashRegisterOperations({
               <div><span>Diferença</span><strong>{operation.differenceLabel || "—"}</strong></div>
               {operation.closedAt && <div><span>Fechado em</span><strong>{formatDate(operation.closedAt)}</strong></div>}
             </div>
-            <button className="button button-danger button-small" type="button" disabled={clearing || deletingId !== null} onClick={() => void removeOperation(operation)}>{deletingId === operation.id ? "Removendo…" : "Remover operação"}</button>
+            <button className="button button-danger button-small" type="button" disabled={loading || clearing || deletingId !== null} onClick={() => void removeOperation(operation)}>{deletingId === operation.id ? "Removendo…" : "Remover operação"}</button>
           </article>)}</div>
 
           <div className="register-pagination cash-operations-pagination">
@@ -205,7 +205,7 @@ export function CashRegisterOperations({
         </> : <div className="empty cash-operations-empty">Nenhuma operação registrada neste caixa.</div>}
       </>}
       <div className="register-modal-actions cash-operations-footer">
-        <button className="button button-secondary" type="button" disabled={clearing || deletingId !== null} onClick={onClose}>Fechar</button>
+        <button className="button button-secondary" type="button" disabled={loading || clearing || deletingId !== null} onClick={onClose}>Fechar</button>
       </div>
     </section>
   </div>;
