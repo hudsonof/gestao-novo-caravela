@@ -18,7 +18,8 @@ Esta documentação descreve os endpoints de operações simplificadas de caixa.
 | `POST /api/register-shifts` | Abre uma operação de caixa | Obrigatória |
 | `POST /api/register-shifts/{id}/withdrawals` | Registra uma retirada em operação aberta | Obrigatória |
 | `DELETE /api/register-shifts/{id}/withdrawals/{withdrawalId}` | Exclui retirada de operação aberta; somente ADMIN/MANAGER | Não exigida |
-| `POST /api/register-shifts/{id}/close` | Fecha a operação e registra o batimento | Obrigatória |\n| `DELETE /api/register-shifts/{id}` | Exclui operação fechada, fechamento e retiradas; somente ADMIN | Não exigida |
+| `POST /api/register-shifts/{id}/close` | Fecha a operação e registra o batimento | Obrigatória |
+| `DELETE /api/register-shifts/{id}` | Exclui operação fechada, fechamento e retiradas; somente ADMIN | Não exigida |
 
 ## Abrir caixa
 
