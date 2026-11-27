@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/db";
 import { ApiError, handleApi } from "@/lib/http";
-import { requireAdmin } from "@/lib/authorization";
+import { requireManager } from "@/lib/authorization";
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   return handleApi(async () => {
-    const actor = await requireAdmin();
+    const actor = await requireManager();
     const { id } = await context.params;
 
     return prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "CashRegisterShift" WHERE "id" = ${id} FOR UPDATE`;
-      if (!rows.length) throw new ApiError(404, "Fechamento não encontrado.");
+      if (!rows.length) throw new ApiError(404, "Operação não encontrada.");
 
       const shift = await tx.cashRegisterShift.findUnique({
         where: { id },
@@ -21,7 +21,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
         },
       });
       if (!shift) throw new ApiError(404, "Fechamento não encontrado.");
-      if (shift.status !== "CLOSED") throw new ApiError(409, "Somente operações fechadas podem ser excluídas.");
+
 
       await tx.auditLog.create({
         data: {
