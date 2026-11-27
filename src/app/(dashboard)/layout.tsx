@@ -8,7 +8,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") redirect("/acesso-pdv");
 
   return (
-    <DashboardShell userName={session.user.name} role={session.user.role}>
+    <DashboardShell userName={session.user.name ?? null} role={session.user.role}>
       {children}
     </DashboardShell>
   );
